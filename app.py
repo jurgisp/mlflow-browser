@@ -32,7 +32,7 @@ def load_run_metrics(run_id=None, metric='_loss'):
 
 def create_app(doc):
 
-    # Users table
+    # Runs table
 
     runs_source = ColumnDataSource(data=load_runs())
     runs_table = DataTable(
