@@ -1,4 +1,3 @@
-# %%
 import mlflow
 from mlflow.tracking import MlflowClient
 import pandas as pd
@@ -11,35 +10,26 @@ from bokeh.palettes import Category10_10 as palette
 import tools
 
 N_LINES = 10
+MAX_RUNS = 100
 
-# mlflow.set_tracking_uri('http://mlflow.threethirds.ai')
-# mlflow.set_experiment('dreamer2')
 mlflow_client = MlflowClient()
-
-# %%
-# runs = load_runs()
-# runs.iloc[0].to_dict()
-# hist = mlflow_client.get_metric_history('e27a67e35ae5434d82f7de968d984849', '_loss')
-# tools.metrics_to_df(hist)
-
-# %%
 
 
 def load_runs():
     print('Loading runs...')
-    df = mlflow.search_runs()
+    df = mlflow.search_runs(max_results=MAX_RUNS)
     print(f'{len(df)} runs loaded')
     return df
 
 
 def load_run_metrics(run_id=None, metric='_loss'):
     if run_id is None:
-        tools.metrics_to_df([])
-    hist = mlflow_client.get_metric_history(run_id, metric)
+        return tools.metrics_to_df([])
+    with tools.Timer(f'get_metric_history({run_id})', verbose=True):
+        hist = mlflow_client.get_metric_history(run_id, metric)
     return tools.metrics_to_df(hist)
 
 
-# %%
 def create_app(doc):
 
     # Users table
@@ -101,4 +91,5 @@ def create_app(doc):
         ))
 
 
-create_app(curdoc())
+if __name__.startswith('bokeh_app_'):
+    create_app(curdoc())
