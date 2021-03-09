@@ -71,6 +71,8 @@ def create_app(doc):
     )
     metrics_figure.toolbar.active_scroll = metrics_figure.select_one(WheelZoomTool)
 
+    # TODO: multiline+legend https://github.com/bokeh/bokeh/pull/8218
+
     metrics_sources = []
     for i in range(N_LINES):
         metrics_sources.append(ColumnDataSource(data=load_run_metrics()))
