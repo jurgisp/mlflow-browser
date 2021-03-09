@@ -11,24 +11,23 @@ import tools
 
 N_LINES = 10
 MAX_RUNS = 100
-LIVE_REFRESH_SEC = 10
+LIVE_REFRESH_SEC = 30
 
 mlflow_client = MlflowClient()
 
 
 def load_runs():
-    print('Loading runs...')
-    df = mlflow.search_runs(max_results=MAX_RUNS)
-    print(f'{len(df)} runs loaded')
+    with tools.Timer(f'mlflow.search_runs()', verbose=True):
+        df = mlflow.search_runs(max_results=MAX_RUNS)
     return df
 
 
-def load_run_metrics(run_id=None, metric='_loss'):
+def load_run_metrics(run_id=None, run_name=None, metric='_loss'):
     if run_id is None:
         return tools.metrics_to_df([])
-    with tools.Timer(f'get_metric_history({run_id})', verbose=True):
+    with tools.Timer(f'mlflow.get_metric_history()', verbose=True):
         hist = mlflow_client.get_metric_history(run_id, metric)
-    return tools.metrics_to_df(hist)
+    return tools.metrics_to_df(hist, run_name)
 
 
 def create_app(doc):
@@ -49,9 +48,12 @@ def create_app(doc):
     def reload_metrics_sources(src=runs_source):
         ix = src.selected.indices or []
         run_ids = [src.data['run_id'][i] for i in ix]
+        run_names = [src.data['tags.mlflow.runName'][i] for i in ix]
         for i in range(N_LINES):
-            run_id = run_ids[i] if i < len(run_ids) else None
-            metrics_sources[i].data = load_run_metrics(run_id)
+            if i < len(run_ids):
+                metrics_sources[i].data = load_run_metrics(run_ids[i], run_names[i])
+            else:
+                metrics_sources[i].data = load_run_metrics()
 
     runs_source.selected.on_change('indices', lambda attr, old, new: reload_metrics_sources())  # pylint: disable=no-member
 
@@ -85,6 +87,7 @@ def create_app(doc):
         plot_width=1200,
         plot_height=600,
         tooltips=[
+            ("run", "@run"),
             ("metric", "@metric"),
             ("step", "@step"),
             ("value", "@value"),
@@ -97,6 +100,7 @@ def create_app(doc):
             y='value',
             source=metrics_sources[i],
             color=palette[i],
+            # legend_field='run',  # legend_label, legend_field, legend_group
             line_width=2,
             line_alpha=0.8)
 
