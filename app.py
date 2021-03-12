@@ -1,9 +1,9 @@
 # %%
 import itertools
+import numpy as np
+import pandas as pd
 import mlflow
 from mlflow.tracking import MlflowClient
-from numpy.lib.function_base import select
-import pandas as pd
 
 from bokeh.plotting import figure, curdoc
 from bokeh.models import *
@@ -12,7 +12,7 @@ from bokeh.layouts import layout
 from bokeh.palettes import Category10_10 as palette
 
 import tools
-from tools import selected_rows
+from tools import selected_rows, selected_columns
 
 N_LINES = 10
 MAX_RUNS = 100
@@ -30,12 +30,21 @@ def load_runs():
     return df
 
 
-def load_keys(runs_data):
-    run_columns = runs_data.keys()
-    metric_columns = [c for c in run_columns if c.startswith('metrics.')]
-    metric_keys = [c.split('.')[1] for c in metric_columns]
-    metric_keys.sort()
-    return {'metric': metric_keys}
+def load_keys(runs_data=None):
+    # runs_data = {'metrics.1': [run1val, run2val], 'metrics.2': [...], ...}
+    if runs_data is None:
+        return {'metric': [], 'value': []}
+    metrics = {}
+    for col in sorted(runs_data.keys()):
+        if col.startswith('metrics.'):
+            metrics_key = col.split('.')[1]
+            vals = runs_data[col]
+            if len(vals) > 0 and (vals[0] is not None) and (not np.isnan(vals[0])):
+                metrics[metrics_key] = vals[0]  # Take first run value
+    return {
+        'metric': list(metrics.keys()),
+        'value': list(metrics.values())
+    }
 
 
 def load_run_metrics(run=None, metric=DEFAULT_METRIC):
@@ -59,18 +68,34 @@ def create_app(doc):
     # === Data sources ===
 
     runs_source = ColumnDataSource(data=load_runs())
-    keys_source = ColumnDataSource(data=load_keys(runs_source.data))
+    keys_source = ColumnDataSource(data=load_keys())
     metrics_sources = []
     for i in range(N_LINES):
         metrics_sources.append(ColumnDataSource(data=load_run_metrics()))
 
     # Callbacks
 
-    runs_source.selected.on_change('indices', lambda attr, old, new: reload_metrics())
-    keys_source.selected.on_change('indices', lambda attr, old, new: reload_metrics())
+    runs_source.selected.on_change('indices', lambda attr, old, new: select_runs())
+    keys_source.selected.on_change('indices', lambda attr, old, new: select_keys())
+
+    def refresh():
+        print('Refreshing...')
+        reload_runs()
+        reload_metrics()
+
+    def select_runs():
+        reload_keys()
+        reload_metrics()
+
+    def select_keys():
+        reload_metrics()
 
     def reload_runs():
         runs_source.data = load_runs()
+
+    def reload_keys():
+        runs_data = selected_columns(runs_source)
+        keys_source.data = load_keys(runs_data)
 
     def reload_metrics():
         runs = selected_rows(runs_source)
@@ -87,11 +112,6 @@ def create_app(doc):
                 metrics_sources[i].data = load_run_metrics(run_keys[i][0], metric=run_keys[i][1])
             else:
                 metrics_sources[i].data = load_run_metrics()
-
-    def refresh():
-        print('Refreshing...')
-        reload_runs()
-        reload_metrics()
 
     # === Layout ===
 
@@ -115,7 +135,9 @@ def create_app(doc):
 
     keys_table = DataTable(
         source=keys_source,
-        columns=[TableColumn(field="metric", title="metric")],
+        columns=[TableColumn(field="metric", title="metric"),
+                 TableColumn(field="value", title="value", formatter=NumberFormatter(format="0.[000]")),
+                 ],
         width=200,
         height=600,
         selectable=True

@@ -11,13 +11,23 @@ def metrics_to_df(metric_history, run=None):
         columns=['run', 'metric', 'timestamp', 'step', 'value']
     )
 
+
 def selected_rows(src):
     ixs = src.selected.indices or []
-    runs = [
+    rows = [
         {key: src.data[key][i] for key in src.data}
         for i in ixs
     ]
-    return runs
+    return rows
+
+
+def selected_columns(src):
+    ixs = src.selected.indices or []
+    cols = {
+        key: list([src.data[key][i] for i in ixs])
+        for key in src.data
+    }
+    return cols
 
 
 class Timer:
