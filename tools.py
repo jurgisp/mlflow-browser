@@ -11,6 +11,14 @@ def metrics_to_df(metric_history, run=None):
         columns=['run', 'metric', 'timestamp', 'step', 'value']
     )
 
+def selected_rows(src):
+    ixs = src.selected.indices or []
+    runs = [
+        {key: src.data[key][i] for key in src.data}
+        for i in ixs
+    ]
+    return runs
+
 
 class Timer:
 
