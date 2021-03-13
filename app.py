@@ -29,6 +29,9 @@ def load_runs():
     df['name'] = df['tags.mlflow.runName']
     return df
 
+def delete_run(run_id):
+    print(f'Deleting run {run_id}')
+    mlflow.delete_run(run_id)
 
 def load_keys(runs_data=None):
     # runs_data = {'metrics.1': [run1val, run2val], 'metrics.2': [...], ...}
@@ -113,6 +116,12 @@ def create_app(doc):
             else:
                 metrics_sources[i].data = load_run_metrics()
 
+    def delete_run_callback():
+        runs = selected_rows(runs_source)
+        if len(runs) == 1:
+            delete_run(runs[0]['id'])
+            reload_runs()
+
     # === Layout ===
 
     # Runs table
@@ -169,14 +178,17 @@ def create_app(doc):
             line_width=2,
             line_alpha=0.8)
 
-    # Layout
+    # === Layout ===
+
+    btn_delete = Button(label='Delete run', width=100)
+    btn_delete.on_click(lambda _: delete_run_callback())
 
     if LIVE_REFRESH_SEC:
         doc.add_periodic_callback(refresh, LIVE_REFRESH_SEC * 1000)
 
     doc.add_root(
         layout([
-            [runs_table],
+            [runs_table, btn_delete],
             [keys_table, metrics_figure],
         ])
     )
