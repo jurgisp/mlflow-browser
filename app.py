@@ -78,7 +78,7 @@ def load_run_artifacts(run=None, path='d2_train_batch'):
     }
 
 
-def load_artifact(run_id, artifact_path):
+def load_artifact_steps(run_id, artifact_path):
     with tools.Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
         if artifact_path.endswith('.npz'):
             data = tools.download_artifact_npz(mlflow_client, run_id, artifact_path)
@@ -90,10 +90,27 @@ def load_artifact(run_id, artifact_path):
     else:
         raise NotImplementedError
 
+
+def load_frame(step_data=None,
+               image_keys=['image', 'image_rec', 'imag_image_1', 'imag_image_2']):
+
+    if step_data is None:
+        return {k: [] for k in image_keys}
+
+    data = {}
+    for k in image_keys:
+        obs = step_data[k]
+        assert obs.shape == (7, 7)  # Assuming MiniGrid
+        img = artifacts_minigrid.render_obs(obs)
+        img = tools.to_rgba(img)
+        data[k] = [img]
+    return data
+
 # %%
 
 # load_run_artifacts({'id':'db1a75611d464df08f1c7052cc8b1047'})
 # data = download_artifact_npz('db1a75611d464df08f1c7052cc8b1047', 'd2_train_batch/0000951.npz')
+# data['imag_image'].shape
 
 
 # %%
@@ -109,7 +126,8 @@ def create_app(doc):
         metrics_sources.append(ColumnDataSource(data=load_run_metrics()))
 
     artifacts_source = ColumnDataSource(data=load_run_artifacts())
-    artifact_details_source = ColumnDataSource(data={})
+    steps_source = ColumnDataSource(data={})
+    frame_source = ColumnDataSource(data=load_frame())
 
     # Callbacks
 
@@ -129,8 +147,13 @@ def create_app(doc):
     keys_source.selected.on_change('indices', key_selected)
 
     def artifact_selected(attr, old, new):
-        update_artifact_details()
+        update_steps()
+        update_frame()
     artifacts_source.selected.on_change('indices', artifact_selected)
+
+    def step_selected(attr, old, new):
+        update_frame()
+    steps_source.selected.on_change('indices', step_selected)
 
     # Data update
 
@@ -167,12 +190,17 @@ def create_app(doc):
         run = selected_row_single(runs_source)
         artifacts_source.data = load_run_artifacts(run)
 
-    def update_artifact_details():
+    def update_steps():
         run = selected_row_single(runs_source)
         artifact = selected_row_single(artifacts_source)
         if run and artifact:
-            data = load_artifact(run['id'], artifact['path'])
-            artifact_details_source.data = data
+            steps_source.data = load_artifact_steps(run['id'], artifact['path'])
+        else:
+            steps_source.data = {}
+
+    def update_frame():
+        step = selected_row_single(steps_source)
+        frame_source.data = load_frame(step)
 
     # === Layout ===
 
@@ -245,23 +273,34 @@ def create_app(doc):
 
     # Artifact details
 
-    artifact_details_table = DataTable(
-        source=artifact_details_source,
+    fmt = NumberFormatter(format="0.[000]")
+    artifact_steps_table = DataTable(
+        source=steps_source,
         columns=[
-            TableColumn(field="batch"),
-            TableColumn(field="step"),
-            TableColumn(field="action"),
-            TableColumn(field="reward"),
-            TableColumn(field="imag_action_1"),
-            TableColumn(field="imag_reward_1"),
-            TableColumn(field="imag_reward_2"),
-            TableColumn(field="imag_value_1"),
-            TableColumn(field="imag_target_1"),
+            TableColumn(field="batch", formatter=fmt),
+            TableColumn(field="step", formatter=fmt),
+            TableColumn(field="action", formatter=fmt),
+            TableColumn(field="reward", formatter=fmt),
+            TableColumn(field="imag_action_1", formatter=fmt),
+            TableColumn(field="imag_reward_1", formatter=fmt),
+            TableColumn(field="imag_reward_2", formatter=fmt),
+            TableColumn(field="imag_value_1", formatter=fmt),
+            TableColumn(field="imag_target_1", formatter=fmt),
         ],
         width=600,
         height=600,
         selectable=True
     )
+
+    w, h, dw, dh = 300, 300, 7, 7
+    frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
+    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
+    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
+    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
+    frame_figure_1.image_rgba(image='image', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_2.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_3.image_rgba(image='imag_image_2', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_4.image_rgba(image='imag_image_1', x=0, y=0, dw=dw, dh=dh, source=frame_source)
 
     # === Layout ===
 
@@ -279,7 +318,12 @@ def create_app(doc):
                     [keys_table, metrics_figure],
                 ])),
                 Panel(title="Artifacts", child=layout([
-                    [artifacts_table, artifact_details_table],
+                    [artifacts_table, artifact_steps_table,
+                        layout([
+                            [frame_figure_1, frame_figure_2],
+                            [frame_figure_3, frame_figure_4],
+                        ])
+                     ],
                 ])),
             ])],
         ])

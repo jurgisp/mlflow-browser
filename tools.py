@@ -47,6 +47,17 @@ def download_artifact_npz(client, run_id, artifact_path):
     return data
 
 
+def to_rgba(img, alpha=255):
+    rgba = np.zeros(img.shape[0:2], dtype=np.uint32)
+    view = rgba.view(dtype=np.uint8).reshape(rgba.shape + (4,))
+    view[:, :, 0:3] = np.flipud(img)
+    if isinstance(alpha, np.ndarray):
+        view[:, :, 3] = np.flipud(alpha)
+    else:
+        view[:, :, 3] = alpha
+    return rgba
+
+
 class Timer:
 
     def __init__(self, name='timer', verbose=True):
