@@ -1,5 +1,8 @@
 import time
+import tempfile
+from pathlib import Path
 import pandas as pd
+import numpy as np
 
 
 def metrics_to_df(metric_history, run=None):
@@ -20,9 +23,11 @@ def selected_rows(src):
     ]
     return rows
 
+
 def selected_row_single(src):
     rows = selected_rows(src)
     return rows[0] if len(rows) == 1 else None
+
 
 def selected_columns(src):
     ixs = src.selected.indices or []
@@ -31,6 +36,15 @@ def selected_columns(src):
         for key in src.data
     }
     return cols
+
+
+def download_artifact_npz(client, run_id, artifact_path):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = client.download_artifacts(run_id, artifact_path, tmpdir)
+        with Path(path).open('rb') as f:
+            data = np.load(f)
+            data = {k: data[k] for k in data.keys()}
+    return data
 
 
 class Timer:

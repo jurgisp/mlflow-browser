@@ -16,6 +16,10 @@ from bokeh.palettes import Category10_10 as palette
 import tools
 from tools import selected_rows, selected_row_single, selected_columns
 
+import artifacts_dreamer2  # for handling app-specific artifacts
+import artifacts_minigrid
+
+
 N_LINES = 10
 MAX_RUNS = 100
 LIVE_REFRESH_SEC = 30
@@ -74,28 +78,17 @@ def load_run_artifacts(run=None, path='d2_train_batch'):
     }
 
 
-def download_artifact_npz(run_id, artifact_path):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with tools.Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
-            path = mlflow_client.download_artifacts(run_id, artifact_path, tmpdir)
-        with Path(path).open('rb') as f:
-            data = np.load(f)
-            data = {k: data[k] for k in data.keys()}
-    return data
+def load_artifact(run_id, artifact_path):
+    with tools.Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
+        if artifact_path.endswith('.npz'):
+            data = tools.download_artifact_npz(mlflow_client, run_id, artifact_path)
+        else:
+            raise NotImplementedError
 
-
-def load_artifact_d2_train_batch(run_id, artifact_path):
-    data = download_artifact_npz(run_id, artifact_path)
-    flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
-    return dict(
-        action=flatten(data['action']).argmax(axis=-1),
-        reward=flatten(data['reward']),
-        imag_action_1=flatten(data['imag_action']).argmax(axis=-1)[:, 0],
-        imag_reward_1=flatten(data['imag_reward'])[:, 0],
-        imag_reward_2=flatten(data['imag_reward'])[:, 1],
-        imag_value_1=flatten(data['imag_value'])[:, 0],
-        imag_target_1=flatten(data['imag_target'])[:, 0],
-    )
+    if artifact_path.startswith('d2_train_batch'):
+        return artifacts_dreamer2.parse_d2_train_batch(data)
+    else:
+        raise NotImplementedError
 
 # %%
 
@@ -122,39 +115,39 @@ def create_app(doc):
 
     def refresh():
         print('Refreshing...')
-        reload_runs()
-        reload_metrics()
+        update_runs()
+        update_metrics()
 
-    def select_runs():
-        reload_keys()
-        reload_metrics()
-        reload_artifacts()
-    runs_source.selected.on_change('indices', lambda attr, old, new: select_runs())
+    def run_selected(attr, old, new):
+        update_keys()
+        update_metrics()
+        update_artifacts()
+    runs_source.selected.on_change('indices', run_selected)
 
-    def select_keys():
-        reload_metrics()
-    keys_source.selected.on_change('indices', lambda attr, old, new: select_keys())
+    def key_selected(attr, old, new):
+        update_metrics()
+    keys_source.selected.on_change('indices', key_selected)
 
-    def select_artifacts():
-        reload_artifact_details()
-    artifacts_source.selected.on_change('indices', lambda attr, old, new: select_artifacts())
+    def artifact_selected(attr, old, new):
+        update_artifact_details()
+    artifacts_source.selected.on_change('indices', artifact_selected)
 
     # Data update
 
-    def reload_runs():
+    def update_runs():
         runs_source.data = load_runs()
 
     def delete_run_callback():
         runs = selected_rows(runs_source)
         if len(runs) == 1:
             delete_run(runs[0]['id'])
-            reload_runs()
+            update_runs()
 
-    def reload_keys():
+    def update_keys():
         runs_data = selected_columns(runs_source)
         keys_source.data = load_keys(runs_data)
 
-    def reload_metrics():
+    def update_metrics():
         runs = selected_rows(runs_source)
         keys = selected_rows(keys_source)
         if len(keys) > 0:
@@ -170,15 +163,15 @@ def create_app(doc):
             else:
                 metrics_sources[i].data = load_run_metrics()
 
-    def reload_artifacts():
+    def update_artifacts():
         run = selected_row_single(runs_source)
         artifacts_source.data = load_run_artifacts(run)
 
-    def reload_artifact_details():
+    def update_artifact_details():
         run = selected_row_single(runs_source)
         artifact = selected_row_single(artifacts_source)
         if run and artifact:
-            data = load_artifact_d2_train_batch(run['id'], artifact['path'])
+            data = load_artifact(run['id'], artifact['path'])
             artifact_details_source.data = data
 
     # === Layout ===
@@ -255,6 +248,8 @@ def create_app(doc):
     artifact_details_table = DataTable(
         source=artifact_details_source,
         columns=[
+            TableColumn(field="batch"),
+            TableColumn(field="step"),
             TableColumn(field="action"),
             TableColumn(field="reward"),
             TableColumn(field="imag_action_1"),
