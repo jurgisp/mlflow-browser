@@ -20,6 +20,9 @@ def selected_rows(src):
     ]
     return rows
 
+def selected_row_single(src):
+    rows = selected_rows(src)
+    return rows[0] if len(rows) == 1 else None
 
 def selected_columns(src):
     ixs = src.selected.indices or []
