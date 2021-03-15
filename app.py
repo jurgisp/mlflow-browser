@@ -99,11 +99,12 @@ def load_frame(step_data=None,
 
     data = {}
     for k in image_keys:
-        obs = step_data[k]
-        assert obs.shape == (7, 7)  # Assuming MiniGrid
-        img = artifacts_minigrid.render_obs(obs)
-        img = tools.to_rgba(img)
-        data[k] = [img]
+        if k in step_data:
+            obs = step_data[k]
+            assert obs.shape == (7, 7)  # Assuming MiniGrid
+            img = artifacts_minigrid.render_obs(obs)
+            img = tools.to_rgba(img)
+            data[k] = [img]
     return data
 
 # %%
@@ -134,12 +135,20 @@ def create_app(doc):
     def refresh():
         print('Refreshing...')
         update_runs()
-        run_selected(None, None, None)
-
-    def run_selected(attr, old, new):
+        # metrics
         update_keys()
         update_metrics()
+        # artifacts
         update_artifacts()
+
+    def run_selected(attr, old, new):
+        # metrics
+        update_keys()
+        update_metrics()
+        # artifacts
+        update_artifacts()
+        update_steps()
+        update_frame()
     runs_source.selected.on_change('indices', run_selected)
 
     def key_selected(attr, old, new):
@@ -187,12 +196,11 @@ def create_app(doc):
                 metrics_sources[i].data = load_run_metrics()
 
     def update_artifacts():
-        if tabs.active == 1:
-            run = selected_row_single(runs_source)
-            artifacts_source.data = load_run_artifacts(run)
+        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
+        artifacts_source.data = load_run_artifacts(run)
 
     def update_steps():
-        run = selected_row_single(runs_source)
+        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
         artifact = selected_row_single(artifacts_source)
         if run and artifact:
             steps_source.data = load_artifact_steps(run['id'], artifact['path'])
@@ -255,7 +263,7 @@ def create_app(doc):
             y='value',
             source=metrics_sources[i],
             color=palette[i],
-            # legend_field='run',  # legend_label, legend_field, legend_group
+            legend_field='metric',  # legend_label, legend_field, legend_group
             line_width=2,
             line_alpha=0.8)
 

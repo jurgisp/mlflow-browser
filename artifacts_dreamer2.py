@@ -22,13 +22,14 @@ def parse_d2_train_batch(data):
         reward=flatten(data['reward']),
         image=flatten(data['image'])[..., 0],  # (7,7,1) => (7,7)
         image_rec=flatten(data['image_rec']),  # (7,7)
+        reward_rec=flatten(data['reward_rec']) if 'reward_rec' in data else [np.nan] * (b * t),
         imag_action_1=flatten(data['imag_action']).argmax(axis=-1)[:, 0],
-        imag_reward_1=flatten(data['imag_reward'])[:, 0],
+        # imag_reward_1=flatten(data['imag_reward'])[:, 0],
+        # imag_image_1=flatten(data['imag_image'])[:, 0],
         imag_reward_2=flatten(data['imag_reward'])[:, 1],
-        imag_value_1=flatten(data['imag_value'])[:, 0],
-        imag_target_1=flatten(data['imag_target'])[:, 0],
-        imag_image_1=flatten(data['imag_image'])[:, 0],
         imag_image_2=flatten(data['imag_image'])[:, 1],
         imag_weights_2=flatten(data['imag_weights'])[:, 1],
-        loss_kl=flatten(data['loss_kl']) if 'loss_kl' in data else [0] * (b * t),
+        imag_value_1=flatten(data['imag_value'])[:, 0],
+        imag_target_1=flatten(data['imag_target'])[:, 0],
+        loss_kl=flatten(data['loss_kl']) if 'loss_kl' in data else [np.nan] * (b * t),
     )
