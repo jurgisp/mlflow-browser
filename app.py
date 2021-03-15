@@ -22,7 +22,6 @@ import artifacts_minigrid
 
 N_LINES = 10
 MAX_RUNS = 100
-LIVE_REFRESH_SEC = 30
 DEFAULT_METRIC = '_loss'
 
 mlflow_client = MlflowClient()
@@ -71,6 +70,7 @@ def load_run_artifacts(run=None, path='d2_train_batch'):
         return {}
     with tools.Timer(f'mlflow.list_artifacts()', verbose=True):
         artifacts = mlflow_client.list_artifacts(run['id'], path)
+    artifacts = list(reversed(artifacts))  # Order newest-first
     return {
         'path': [f.path for f in artifacts],
         'file_size': [f.file_size for f in artifacts],
@@ -134,7 +134,7 @@ def create_app(doc):
     def refresh():
         print('Refreshing...')
         update_runs()
-        update_metrics()
+        run_selected(None, None, None)
 
     def run_selected(attr, old, new):
         update_keys()
@@ -187,8 +187,9 @@ def create_app(doc):
                 metrics_sources[i].data = load_run_metrics()
 
     def update_artifacts():
-        run = selected_row_single(runs_source)
-        artifacts_source.data = load_run_artifacts(run)
+        if tabs.active == 1:
+            run = selected_row_single(runs_source)
+            artifacts_source.data = load_run_artifacts(run)
 
     def update_steps():
         run = selected_row_single(runs_source)
@@ -277,15 +278,16 @@ def create_app(doc):
     artifact_steps_table = DataTable(
         source=steps_source,
         columns=[
-            TableColumn(field="batch", formatter=fmt),
-            TableColumn(field="step", formatter=fmt),
-            TableColumn(field="action", formatter=fmt),
-            TableColumn(field="reward", formatter=fmt),
-            TableColumn(field="imag_action_1", formatter=fmt),
-            TableColumn(field="imag_reward_1", formatter=fmt),
-            TableColumn(field="imag_reward_2", formatter=fmt),
-            TableColumn(field="imag_value_1", formatter=fmt),
-            TableColumn(field="imag_target_1", formatter=fmt),
+            TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
+            TableColumn(field="loss_kl", title="kl", formatter=fmt),
+            TableColumn(field="action", title='action_last', formatter=fmt),
+            TableColumn(field="reward", title='reward_last', formatter=fmt),
+            TableColumn(field="imag_reward_1", title='reward_rec', formatter=fmt),
+            TableColumn(field="imag_action_1", title='action_pred', formatter=fmt),
+            TableColumn(field="imag_reward_2", title='reward_pred', formatter=fmt),
+            TableColumn(field="imag_weights_2", title='discount_pred', formatter=fmt),
+            TableColumn(field="imag_value_1", title='value', formatter=fmt),
+            TableColumn(field="imag_target_1", title='value_target', formatter=fmt),
         ],
         width=600,
         height=600,
@@ -293,27 +295,24 @@ def create_app(doc):
     )
 
     w, h, dw, dh = 300, 300, 7, 7
-    frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
-    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
-    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
-    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None)
+    frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Observation')
+    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Reconstruction')
+    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='-')
+    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Prediciton')
     frame_figure_1.image_rgba(image='image', x=0, y=0, dw=dw, dh=dh, source=frame_source)
     frame_figure_2.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_3.image_rgba(image='imag_image_2', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_4.image_rgba(image='imag_image_1', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    # frame_figure_3.image_rgba(image='imag_image_1', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_4.image_rgba(image='imag_image_2', x=0, y=0, dw=dw, dh=dh, source=frame_source)
 
     # === Layout ===
+
+    btn_refresh = Button(label='Refresh', width=100)
+    btn_refresh.on_click(lambda _: refresh())
 
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
 
-    if LIVE_REFRESH_SEC:
-        doc.add_periodic_callback(refresh, LIVE_REFRESH_SEC * 1000)
-
-    doc.add_root(
-        layout([
-            [runs_table, btn_delete],
-            [Tabs(active=1, tabs=[
+    tabs = Tabs(active=1, tabs=[
                 Panel(title="Metrics", child=layout([
                     [keys_table, metrics_figure],
                 ])),
@@ -325,7 +324,12 @@ def create_app(doc):
                         ])
                      ],
                 ])),
-            ])],
+                ])
+
+    doc.add_root(
+        layout([
+            [runs_table, layouts.column([btn_refresh, btn_delete])],
+            [tabs],
         ])
     )
 

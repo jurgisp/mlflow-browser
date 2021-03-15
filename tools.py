@@ -3,6 +3,11 @@ import tempfile
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import warnings
+
+# Ignore Google Cloud SDK warning when running locally with user credentials
+# This is used for downloading artifacts
+warnings.filterwarnings("ignore", "Your application has authenticated using end user credentials")
 
 
 def metrics_to_df(metric_history, run=None):
