@@ -65,12 +65,14 @@ def load_run_metrics(run=None, metric=DEFAULT_METRIC):
     return tools.metrics_to_df(hist, run['name'])
 
 
-def load_run_artifacts(run=None, path='d2_train_batch'):
+def load_artifacts(run=None, path=None, dirs=False):
     if run is None:
         return {}
-    with tools.Timer(f'mlflow.list_artifacts()', verbose=True):
+    with tools.Timer(f'mlflow.list_artifacts({path})', verbose=True):
         artifacts = mlflow_client.list_artifacts(run['id'], path)
-    artifacts = list(reversed(artifacts))  # Order newest-first
+    artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
+    if not dirs:
+        artifacts = list(reversed(artifacts))  # Order newest-first
     return {
         'path': [f.path for f in artifacts],
         'file_size': [f.file_size for f in artifacts],
@@ -83,16 +85,20 @@ def load_artifact_steps(run_id, artifact_path):
         if artifact_path.endswith('.npz'):
             data = tools.download_artifact_npz(mlflow_client, run_id, artifact_path)
         else:
-            raise NotImplementedError
+            print(f'Artifact extension not supported: {artifact_path}')
+            return {}
 
-    if artifact_path.startswith('d2_train_batch'):
+    if artifact_path.startswith('d2_train_batch/'):
         return artifacts_dreamer2.parse_d2_train_batch(data)
+    elif artifact_path.startswith('d2_wm_predict/'):
+        return artifacts_dreamer2.parse_d2_wm_predict(data)
     else:
-        raise NotImplementedError
+        print(f'Artifact type not supported: {artifact_path}')
+        return {}
 
 
 def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'imag_image_1', 'imag_image_2']):
+               image_keys=['image', 'image_rec', 'image_pred']):
 
     if step_data is None:
         return {k: [] for k in image_keys}
@@ -102,14 +108,16 @@ def load_frame(step_data=None,
         if k in step_data:
             obs = step_data[k]
             assert obs.shape == (7, 7)  # Assuming MiniGrid
-            img = artifacts_minigrid.render_obs(obs)
-            img = tools.to_rgba(img)
-            data[k] = [img]
+        else:
+            obs = np.zeros((7, 7), dtype=int)
+        img = artifacts_minigrid.render_obs(obs)
+        img = tools.to_rgba(img)
+        data[k] = [img]
     return data
 
 # %%
 
-# load_run_artifacts({'id':'db1a75611d464df08f1c7052cc8b1047'})
+# load_artifacts({'id':'db1a75611d464df08f1c7052cc8b1047'})
 # data = download_artifact_npz('db1a75611d464df08f1c7052cc8b1047', 'd2_train_batch/0000951.npz')
 # data['imag_image'].shape
 
@@ -126,7 +134,8 @@ def create_app(doc):
     for i in range(N_LINES):
         metrics_sources.append(ColumnDataSource(data=load_run_metrics()))
 
-    artifacts_source = ColumnDataSource(data=load_run_artifacts())
+    artifacts_dir_source = ColumnDataSource(data=load_artifacts())
+    artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
 
@@ -146,6 +155,7 @@ def create_app(doc):
         update_keys()
         update_metrics()
         # artifacts
+        update_artifacts_dir()
         update_artifacts()
         update_steps()
         update_frame()
@@ -154,6 +164,12 @@ def create_app(doc):
     def key_selected(attr, old, new):
         update_metrics()
     keys_source.selected.on_change('indices', key_selected)
+
+    def artifact_dir_selected(attr, old, new):
+        update_artifacts()
+        update_steps()
+        update_frame()
+    artifacts_dir_source.selected.on_change('indices', artifact_dir_selected)
 
     def artifact_selected(attr, old, new):
         update_steps()
@@ -195,9 +211,17 @@ def create_app(doc):
             else:
                 metrics_sources[i].data = load_run_metrics()
 
+    def update_artifacts_dir():
+        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
+        artifacts_dir_source.data = load_artifacts(run, dirs=True)
+
     def update_artifacts():
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
-        artifacts_source.data = load_run_artifacts(run)
+        dir = selected_row_single(artifacts_dir_source)
+        if run and dir:
+            artifacts_source.data = load_artifacts(run, dir['path'])
+        else:
+            artifacts_source.data = {}
 
     def update_steps():
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
@@ -271,12 +295,19 @@ def create_app(doc):
 
     # Artifacts list
 
+    artifacts_dir_table = DataTable(
+        source=artifacts_dir_source,
+        columns=[TableColumn(field="path", title="directory")],
+        width=200,
+        height=100,
+        selectable=True
+    )
+
     artifacts_table = DataTable(
         source=artifacts_source,
-        columns=[TableColumn(field="path", title="path"),
-                 ],
+        columns=[TableColumn(field="path", title="file")],
         width=200,
-        height=600,
+        height=500,
         selectable=True
     )
 
@@ -287,15 +318,18 @@ def create_app(doc):
         source=steps_source,
         columns=[
             TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
+            TableColumn(field="action", title='action (last)', formatter=fmt),
+            TableColumn(field="reward", title='reward (last)', formatter=fmt),
+            #
+            TableColumn(field="reward_rec", formatter=fmt),
+            #
+            TableColumn(field="action_pred", formatter=fmt),
+            TableColumn(field="reward_pred", formatter=fmt),
+            TableColumn(field="discount_pred", formatter=fmt),
+            #
+            TableColumn(field="value", formatter=fmt),
+            TableColumn(field="value_target", formatter=fmt),
             TableColumn(field="loss_kl", title="kl", formatter=fmt),
-            TableColumn(field="action", title='action_last', formatter=fmt),
-            TableColumn(field="reward", title='reward_last', formatter=fmt),
-            TableColumn(field="imag_reward_1", title='reward_rec', formatter=fmt),
-            TableColumn(field="imag_action_1", title='action_pred', formatter=fmt),
-            TableColumn(field="imag_reward_2", title='reward_pred', formatter=fmt),
-            TableColumn(field="imag_weights_2", title='discount_pred', formatter=fmt),
-            TableColumn(field="imag_value_1", title='value', formatter=fmt),
-            TableColumn(field="imag_target_1", title='value_target', formatter=fmt),
         ],
         width=600,
         height=600,
@@ -304,13 +338,12 @@ def create_app(doc):
 
     w, h, dw, dh = 300, 300, 7, 7
     frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Observation')
-    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Reconstruction')
-    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='-')
-    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Prediciton')
+    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Prediction')
+    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Reconstruction')
+    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='')
     frame_figure_1.image_rgba(image='image', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_2.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    # frame_figure_3.image_rgba(image='imag_image_1', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_4.image_rgba(image='imag_image_2', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_2.image_rgba(image='image_pred', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_3.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
 
     # === Layout ===
 
@@ -325,7 +358,9 @@ def create_app(doc):
                     [keys_table, metrics_figure],
                 ])),
                 Panel(title="Artifacts", child=layout([
-                    [artifacts_table, artifact_steps_table,
+                    [
+                        layouts.column([artifacts_dir_table, artifacts_table]), 
+                        artifact_steps_table,
                         layout([
                             [frame_figure_1, frame_figure_2],
                             [frame_figure_3, frame_figure_4],

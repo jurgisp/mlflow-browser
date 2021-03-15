@@ -19,12 +19,19 @@ def metrics_to_df(metric_history, run=None):
         columns=['run', 'metric', 'timestamp', 'step', 'value']
     )
 
+def data_length(data):
+    if data == {}:
+        return 0
+    any_key = next(iter(data.keys()))
+    return len(data[any_key])
 
 def selected_rows(src):
     ixs = src.selected.indices or []
+    n = data_length(src.data)
     rows = [
         {key: src.data[key][i] for key in src.data}
         for i in ixs
+        if i < n
     ]
     return rows
 

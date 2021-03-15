@@ -1,10 +1,12 @@
 import numpy as np
 
+def flatten(x):
+    return x.reshape([-1] + list(x.shape[2:]))
+
 
 def parse_d2_train_batch(data):
-    flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
-
     b, t = data['reward'].shape
+    n = b * t
     i_batch, i_step = np.indices((b, t))
     i_batch_step = i_batch * 1000 + i_step
 
@@ -21,15 +23,37 @@ def parse_d2_train_batch(data):
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
         image=flatten(data['image'])[..., 0],  # (7,7,1) => (7,7)
+        #
+        reward_rec=flatten(data['reward_rec']) if 'reward_rec' in data else [np.nan] * n,
         image_rec=flatten(data['image_rec']),  # (7,7)
-        reward_rec=flatten(data['reward_rec']) if 'reward_rec' in data else [np.nan] * (b * t),
-        imag_action_1=flatten(data['imag_action']).argmax(axis=-1)[:, 0],
-        # imag_reward_1=flatten(data['imag_reward'])[:, 0],
-        # imag_image_1=flatten(data['imag_image'])[:, 0],
-        imag_reward_2=flatten(data['imag_reward'])[:, 1],
-        imag_image_2=flatten(data['imag_image'])[:, 1],
-        imag_weights_2=flatten(data['imag_weights'])[:, 1],
-        imag_value_1=flatten(data['imag_value'])[:, 0],
-        imag_target_1=flatten(data['imag_target'])[:, 0],
-        loss_kl=flatten(data['loss_kl']) if 'loss_kl' in data else [np.nan] * (b * t),
+        #
+        action_pred=flatten(data['imag_action']).argmax(axis=-1)[:, 0],  # imag_action[0] = <act1>
+        reward_pred=flatten(data['imag_reward'])[:, 1],                  # imag_reward[1] = reward(state(act1))
+        discount_pred=flatten(data['imag_weights'])[:, 1],               # imag_weights[1] = discount(state(act1))
+        image_pred=flatten(data['imag_image'])[:, 1],                    # imag_image[1] = image(state(act1))
+        #
+        value=flatten(data['imag_value'])[:, 0],                         # imag_value[0] = value(start)
+        value_target=flatten(data['imag_target'])[:, 0],                 # imag_target[0] = value_target(start)
+        loss_kl=flatten(data['loss_kl']) if 'loss_kl' in data else [np.nan] * n,
+    )
+
+
+def parse_d2_wm_predict(data):
+    b, t = data['reward'].shape
+    n = b * t
+    i_batch, i_step = np.indices((b, t))
+    i_batch_step = i_batch * 1000 + i_step
+
+    return dict(
+        step=flatten(i_batch_step),
+        action=flatten(data['action']).argmax(axis=-1),
+        reward=flatten(data['reward']),
+        image=flatten(data['image'])[..., 0],  # (7,7,1) => (7,7)
+        #
+        image_pred=flatten(data['image_pred']),
+        reward_pred=flatten(data['reward_pred']),
+        discount_pred=flatten(data['discount_pred']),
+        #
+        value=flatten(data['behav_value']) if 'behav_value' in data else [np.nan] * n,
+        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,
     )
