@@ -90,11 +90,15 @@ def load_artifact_steps(run_id, artifact_path):
 
     if artifact_path.startswith('d2_train_batch/'):
         return artifacts_dreamer2.parse_d2_train_batch(data)
-    elif artifact_path.startswith('d2_wm_predict/'):
+
+    if artifact_path.startswith('d2_wm_predict/'):
         return artifacts_dreamer2.parse_d2_wm_predict(data)
-    else:
-        print(f'Artifact type not supported: {artifact_path}')
-        return {}
+    
+    if artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/'):
+        return artifacts_dreamer2.parse_d2_episodes(data)
+
+    print(f'Artifact type not supported: {artifact_path}')
+    return {}
 
 
 def load_frame(step_data=None,
@@ -299,7 +303,7 @@ def create_app(doc):
         source=artifacts_dir_source,
         columns=[TableColumn(field="path", title="directory")],
         width=200,
-        height=100,
+        height=150,
         selectable=True
     )
 

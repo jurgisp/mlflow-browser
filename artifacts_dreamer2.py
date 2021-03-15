@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def flatten(x):
     return x.reshape([-1] + list(x.shape[2:]))
 
@@ -56,4 +57,17 @@ def parse_d2_wm_predict(data):
         #
         value=flatten(data['behav_value']) if 'behav_value' in data else [np.nan] * n,
         action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,
+    )
+
+
+def parse_d2_episodes(data):
+    n = data['reward'].shape[0]
+    i_step = np.arange(n)
+
+    return dict(
+        step=i_step,
+        action=data['action'].argmax(axis=-1),
+        reward=data['reward'],
+        image=data['image'][..., 0],  # (7,7,1) => (7,7)
+        discount_pred=data['discount'],
     )
