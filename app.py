@@ -102,7 +102,7 @@ def load_artifact_steps(run_id, artifact_path):
 
 
 def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'image_pred']):
+               image_keys=['image', 'image_rec', 'image_pred', 'map']):
 
     if step_data is None:
         return {k: [] for k in image_keys}
@@ -111,7 +111,7 @@ def load_frame(step_data=None,
     for k in image_keys:
         if k in step_data:
             obs = step_data[k]
-            assert obs.shape == (7, 7)  # Assuming MiniGrid
+            assert obs.shape == (7, 7), f'Shape {obs.shape} not like MiniGrid'
         else:
             obs = np.zeros((7, 7), dtype=int)
         img = artifacts_minigrid.render_obs(obs)
@@ -344,10 +344,11 @@ def create_app(doc):
     frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Observation')
     frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Prediction')
     frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Reconstruction')
-    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='')
+    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Map')
     frame_figure_1.image_rgba(image='image', x=0, y=0, dw=dw, dh=dh, source=frame_source)
     frame_figure_2.image_rgba(image='image_pred', x=0, y=0, dw=dw, dh=dh, source=frame_source)
     frame_figure_3.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    frame_figure_4.image_rgba(image='map', x=0, y=0, dw=dw, dh=dh, source=frame_source)
 
     # === Layout ===
 

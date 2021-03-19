@@ -45,17 +45,31 @@ def parse_d2_wm_predict(data):
     i_batch, i_step = np.indices((b, t))
     i_batch_step = i_batch * 1000 + i_step
 
+    print('Artifact data: ' + str({k: v.shape for k, v in data.items()}))
+
+    if data['image'].shape[-1] == 1:
+        # Backwards-compatibility (7,7,1) => (7,7)
+        data['image'] = data['image'][..., 0]
+
+    nans = np.full_like(data['reward'], np.nan)
+    noimg = np.zeros_like(data['image'])
+
     return dict(
         step=flatten(i_batch_step),
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
-        image=flatten(data['image'])[..., 0],  # (7,7,1) => (7,7)
+        image=flatten(data['image']),
+        map=flatten(data.get('map_agent', noimg)),
         #
-        image_pred=flatten(data['image_pred']),
-        reward_pred=flatten(data['reward_pred']),
-        discount_pred=flatten(data['discount_pred']),
+        image_rec=flatten(data.get('image_rec', noimg)),
         #
-        value=flatten(data['behav_value']) if 'behav_value' in data else [np.nan] * n,
+        image_pred=flatten(data.get('image_pred', noimg)),
+        reward_pred=flatten(data.get('reward_pred', nans)),
+        discount_pred=flatten(data.get('discount_pred', nans)),
+        #
+        loss_kl=flatten(data.get('loss_kl', nans)),
+        #
+        value=flatten(data.get('behav_value', nans)),
         action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,
     )
 
