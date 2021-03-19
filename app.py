@@ -7,7 +7,8 @@ import pandas as pd
 import mlflow
 from mlflow.tracking import MlflowClient
 
-from bokeh.plotting import figure, curdoc
+import bokeh.plotting
+from bokeh.plotting import curdoc
 from bokeh.models import *
 from bokeh import layouts
 from bokeh.layouts import layout
@@ -25,6 +26,19 @@ MAX_RUNS = 100
 DEFAULT_METRIC = '_loss'
 
 mlflow_client = MlflowClient()
+
+
+def figure(tools='box_select,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False, **kwargs):
+    fig = bokeh.plotting.figure(
+        tools=tools,
+        **kwargs,
+    )
+    if active_scroll:
+        fig.toolbar.active_scroll = fig.select_one(WheelZoomTool)
+    if hide_axes:
+        fig.xaxis.visible = False
+        fig.yaxis.visible = False
+    return fig
 
 
 def load_runs():
@@ -93,7 +107,7 @@ def load_artifact_steps(run_id, artifact_path):
 
     if artifact_path.startswith('d2_wm_predict/'):
         return artifacts_dreamer2.parse_d2_wm_predict(data)
-    
+
     if artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/'):
         return artifacts_dreamer2.parse_d2_episodes(data)
 
@@ -102,7 +116,7 @@ def load_artifact_steps(run_id, artifact_path):
 
 
 def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'image_pred', 'map']):
+               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec']):
 
     if step_data is None:
         return {k: [] for k in image_keys}
@@ -111,7 +125,7 @@ def load_frame(step_data=None,
     for k in image_keys:
         if k in step_data:
             obs = step_data[k]
-            assert obs.shape == (7, 7), f'Shape {obs.shape} not like MiniGrid'
+            assert len(obs.shape) == 2, f'Shape {obs.shape} not like MiniGrid'
         else:
             obs = np.zeros((7, 7), dtype=int)
         img = artifacts_minigrid.render_obs(obs)
@@ -282,9 +296,8 @@ def create_app(doc):
             ("metric", "@metric"),
             ("step", "@step"),
             ("value", "@value"),
-        ]
+        ],
     )
-    metrics_figure.toolbar.active_scroll = metrics_figure.select_one(WheelZoomTool)
     for i in range(N_LINES):
         metrics_figure.line(
             x='step',
@@ -340,15 +353,20 @@ def create_app(doc):
         selectable=True
     )
 
-    w, h, dw, dh = 300, 300, 7, 7
-    frame_figure_1 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Observation')
-    frame_figure_2 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Prediction')
-    frame_figure_3 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Reconstruction')
-    frame_figure_4 = fig = figure(plot_width=w, plot_height=h, x_range=[0, dw], y_range=[0, dh], toolbar_location=None, title='Map')
-    frame_figure_1.image_rgba(image='image', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_2.image_rgba(image='image_pred', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_3.image_rgba(image='image_rec', x=0, y=0, dw=dw, dh=dh, source=frame_source)
-    frame_figure_4.image_rgba(image='map', x=0, y=0, dw=dw, dh=dh, source=frame_source)
+    kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
+    frame_figure_1 = fig = figure(title='Observation', **kwargs)
+    frame_figure_2 = fig = figure(title='Reconstruction', **kwargs)
+    frame_figure_3 = fig = figure(title='Prediction', **kwargs)
+    frame_figure_4 = fig = figure(title='Map', **kwargs)
+    frame_figure_5 = fig = figure(title='Map target', **kwargs)
+    frame_figure_6 = fig = figure(title='Map reconstruction', **kwargs)
+    kwargs = dict(x=0, y=0, dw=10, dh=10)
+    frame_figure_1.image_rgba(image='image', source=frame_source, **kwargs)
+    frame_figure_2.image_rgba(image='image_rec', source=frame_source, **kwargs)
+    frame_figure_3.image_rgba(image='image_pred', source=frame_source, **kwargs)
+    frame_figure_4.image_rgba(image='map_agent', source=frame_source, **kwargs)
+    frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
+    frame_figure_6.image_rgba(image='map_rec', source=frame_source, **kwargs)
 
     # === Layout ===
 
@@ -358,19 +376,19 @@ def create_app(doc):
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
 
-    tabs = Tabs(active=1, tabs=[
+    tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [keys_table, metrics_figure],
                 ])),
                 Panel(title="Artifacts", child=layout([
                     [
-                        layouts.column([artifacts_dir_table, artifacts_table]), 
+                        layouts.column([artifacts_dir_table, artifacts_table]),
                         artifact_steps_table,
                         layout([
-                            [frame_figure_1, frame_figure_2],
-                            [frame_figure_3, frame_figure_4],
+                            [frame_figure_1, frame_figure_2, frame_figure_3],
+                            [frame_figure_4, frame_figure_5, frame_figure_6],
                         ])
-                     ],
+                    ],
                 ])),
                 ])
 

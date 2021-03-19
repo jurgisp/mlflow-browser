@@ -59,9 +59,11 @@ def parse_d2_wm_predict(data):
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
         image=flatten(data['image']),
-        map=flatten(data.get('map_agent', noimg)),
+        map_agent=flatten(data.get('map_agent', noimg)),
+        map=flatten(data.get('map', noimg)),
         #
         image_rec=flatten(data.get('image_rec', noimg)),
+        map_rec=flatten(data.get('map_rec', noimg)),
         #
         image_pred=flatten(data.get('image_pred', noimg)),
         reward_pred=flatten(data.get('reward_pred', nans)),
