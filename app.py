@@ -116,18 +116,13 @@ def load_artifact_steps(run_id, artifact_path):
 
 
 def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec']):
-
+               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec']
+               ):
     if step_data is None:
         return {k: [] for k in image_keys}
-
     data = {}
     for k in image_keys:
-        if k in step_data:
-            obs = step_data[k]
-            assert len(obs.shape) == 2, f'Shape {obs.shape} not like MiniGrid'
-        else:
-            obs = np.zeros((7, 7), dtype=int)
+        obs = step_data.get(k)
         img = artifacts_minigrid.render_obs(obs)
         img = tools.to_rgba(img)
         data[k] = [img]
