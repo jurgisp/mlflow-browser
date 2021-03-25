@@ -105,7 +105,7 @@ def load_artifact_steps(run_id, artifact_path):
     if artifact_path.startswith('d2_train_batch/'):
         return artifacts_dreamer2.parse_d2_train_batch(data)
 
-    if artifact_path.startswith('d2_wm_predict/'):
+    if artifact_path.startswith('d2_wm_predict'):
         return artifacts_dreamer2.parse_d2_wm_predict(data)
 
     if artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/'):
@@ -116,13 +116,22 @@ def load_artifact_steps(run_id, artifact_path):
 
 
 def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec']
+               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec', 'map_rec_global']
                ):
     if step_data is None:
         return {k: [] for k in image_keys}
+
+    sd = step_data
+    if 'map_rec' in sd and 'map_agent' in sd and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
+        # map_rec is agent-centric
+        # transform it for easier viewing
+        map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
+        agent_pos, agent_dir = artifacts_minigrid._get_agent_pos(map_agent)
+        sd['map_rec_global'] = artifacts_minigrid._map_centric_to_global(sd['map_rec'], agent_pos, agent_dir, map_agent.shape[:2])
+
     data = {}
     for k in image_keys:
-        obs = step_data.get(k)
+        obs = sd.get(k)
         img = artifacts_minigrid.render_obs(obs)
         img = tools.to_rgba(img)
         data[k] = [img]
@@ -273,7 +282,7 @@ def create_app(doc):
         columns=[TableColumn(field="metric", title="metric"),
                  TableColumn(field="value", title="value", formatter=NumberFormatter(format="0.[000]")),
                  ],
-        width=200,
+        width=300,
         height=600,
         selectable=True
     )
@@ -284,7 +293,7 @@ def create_app(doc):
     metrics_figure = figure(
         x_axis_label='step',
         y_axis_label='value',
-        plot_width=1200,
+        plot_width=1000,
         plot_height=600,
         tooltips=[
             ("run", "@run"),
@@ -350,17 +359,18 @@ def create_app(doc):
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
-    frame_figure_2 = fig = figure(title='Reconstruction', **kwargs)
-    frame_figure_3 = fig = figure(title='Prediction', **kwargs)
+    frame_figure_2 = fig = figure(title='Prediction', **kwargs)
+    frame_figure_3 = fig = figure(title='Reconstruction', **kwargs)
     frame_figure_4 = fig = figure(title='Map', **kwargs)
-    frame_figure_5 = fig = figure(title='Map target', **kwargs)
-    frame_figure_6 = fig = figure(title='Map reconstruction', **kwargs)
+    frame_figure_5 = fig = figure(title='Map prediction (global)', **kwargs)
+    frame_figure_6 = fig = figure(title='Map prediction', **kwargs)
     kwargs = dict(x=0, y=0, dw=10, dh=10)
     frame_figure_1.image_rgba(image='image', source=frame_source, **kwargs)
-    frame_figure_2.image_rgba(image='image_rec', source=frame_source, **kwargs)
-    frame_figure_3.image_rgba(image='image_pred', source=frame_source, **kwargs)
+    frame_figure_2.image_rgba(image='image_pred', source=frame_source, **kwargs)
+    frame_figure_3.image_rgba(image='image_rec', source=frame_source, **kwargs)
     frame_figure_4.image_rgba(image='map_agent', source=frame_source, **kwargs)
-    frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
+    # frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
+    frame_figure_5.image_rgba(image='map_rec_global', source=frame_source, **kwargs)
     frame_figure_6.image_rgba(image='map_rec', source=frame_source, **kwargs)
 
     # === Layout ===

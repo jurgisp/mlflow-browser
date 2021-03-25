@@ -26,7 +26,7 @@ def render_obs(obs, tile_size=16):
         for i in range(obs.shape[-1]):
             # Combine image filled by each category according to prob weights
             img_cat = _render_obs(np.full(obs.shape[:2], i), tile_size=tile_size)
-            weight_cat= np.repeat(np.repeat(obs[...,i].T, tile_size, axis=0), tile_size, axis=1)
+            weight_cat = np.repeat(np.repeat(obs[..., i].T, tile_size, axis=0), tile_size, axis=1)
             if img is None:
                 img = np.zeros(img_cat.shape)
             img += np.expand_dims(weight_cat, -1) * img_cat
@@ -37,16 +37,27 @@ def render_obs(obs, tile_size=16):
 
 def _render_obs(obs, tile_size=16):
     obs = CAT_TO_OBJ[obs]  # (N,N) => (N,N,3)
-
-    # Find and remove special "agent" object
-    agent_pos, agent_dir = None, None
-    x, y = (obs[:, :, 0] == 10).nonzero()
-    if len(x) > 0:
-        agent_pos = x[0], y[0]  # In prediction there might be multiple agents, just pick first
-        agent_dir = obs[x[0]][y[0]][2]
-        obs[x, y, :] = np.array([1, 0, 0])  # Set agent pos to empty
-
-    # Render
+    agent_pos, agent_dir = _get_agent_pos(obs, remove_from_map=True)
     grid, vis_mask = gym_minigrid.minigrid.Grid.decode(obs)
     img = grid.render(tile_size, agent_pos=agent_pos, agent_dir=agent_dir, highlight_mask=~vis_mask)
     return img  # (112, 112, RGB)
+
+
+def _get_agent_pos(map, remove_from_map=False):
+    # Find and remove special "agent" object
+    agent_pos, agent_dir = None, None
+    x, y = (map[:, :, 0] == 10).nonzero()
+    if len(x) > 0:
+        agent_pos = x[0], y[0]  # In prediction there might be multiple agents, just pick first
+        agent_dir = map[x[0]][y[0]][2]
+        if remove_from_map:
+            map[x, y, :] = np.array([1, 0, 0])  # Set agent pos to empty
+    return agent_pos, agent_dir
+
+
+def _map_centric_to_global(map, agent_pos, agent_dir, size):
+    map = np.rot90(map, (agent_dir+1))
+    mid = (map.shape[0] - 1) // 2
+    top_x, top_y = mid - agent_pos[0], mid - agent_pos[1]
+    map = map[top_x:top_x + size[0], top_y:top_y + size[0]]
+    return map

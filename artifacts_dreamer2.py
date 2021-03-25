@@ -62,10 +62,10 @@ def parse_d2_wm_predict(data):
         map_agent=flatten(data.get('map_agent', noimg)),
         map=flatten(data.get('map', noimg)),
         #
-        image_rec=flatten(data.get('image_rec', noimg)),
+        image_rec=flatten(data.get('image_rec_p', data.get('image_rec', noimg))),
         map_rec=flatten(data.get('map_rec_p', data.get('map_rec', noimg))),
         #
-        image_pred=flatten(data.get('image_pred', noimg)),
+        image_pred=flatten(data.get('image_pred_p', data.get('image_pred', noimg))),
         reward_pred=flatten(data.get('reward_pred', nans)),
         discount_pred=flatten(data.get('discount_pred', nans)),
         #
