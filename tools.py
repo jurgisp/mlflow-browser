@@ -10,15 +10,6 @@ import warnings
 warnings.filterwarnings("ignore", "Your application has authenticated using end user credentials")
 
 
-def metrics_to_df(metric_history, run=None):
-    return pd.DataFrame(
-        [
-            [run, m.key, m.timestamp, m.step, m.value]
-            for m in metric_history
-        ],
-        columns=['run', 'metric', 'timestamp', 'step', 'value']
-    )
-
 def data_length(data):
     if data == {}:
         return 0

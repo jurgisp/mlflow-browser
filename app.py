@@ -21,7 +21,6 @@ import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
 
 
-N_LINES = 10
 MAX_RUNS = 100
 DEFAULT_METRIC = '_loss'
 
@@ -74,12 +73,34 @@ def load_keys(runs_data=None):
     }
 
 
-def load_run_metrics(run=None, metric=DEFAULT_METRIC):
-    if run is None:
-        return tools.metrics_to_df([])
-    with tools.Timer(f'mlflow.get_metric_history({metric})', verbose=True):
-        hist = mlflow_client.get_metric_history(run['id'], metric)
-    return tools.metrics_to_df(hist, run['name'])
+def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC]):
+    data = []
+    i = 0
+    for run in runs:
+        run_id, run_name = run['id'], run['name']
+        for metric in metrics:
+            with tools.Timer(f'mlflow.get_metric_history({metric})', verbose=True):
+                hist = mlflow_client.get_metric_history(run_id, metric)
+            data.append([
+                run_name,
+                metric,
+                f'{metric} [{run_name}]' if len(runs) > 1 else f'{metric}',
+                palette[i % len(palette)],
+                np.array([m.timestamp for m in hist]),
+                np.array([m.step for m in hist]),
+                np.array([m.value for m in hist]),
+            ])
+            i += 1
+    df = pd.DataFrame(data, columns=[
+        'run',
+        'metric',
+        'legend',
+        'color',
+        'timestamps',
+        'steps',
+        'values'
+        ])
+    return df
 
 
 def load_artifacts(run=None, path=None, dirs=False):
@@ -155,9 +176,7 @@ def create_app(doc):
 
     runs_source = ColumnDataSource(data=load_runs())
     keys_source = ColumnDataSource(data=load_keys())
-    metrics_sources = []
-    for i in range(N_LINES):
-        metrics_sources.append(ColumnDataSource(data=load_run_metrics()))
+    metrics_source = ColumnDataSource(data=load_run_metrics())
 
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
@@ -234,14 +253,7 @@ def create_app(doc):
             keys = [row['metric'] for row in keys]
         else:
             keys = [DEFAULT_METRIC]
-
-        run_keys = list(itertools.product(runs, keys))
-
-        for i in range(N_LINES):
-            if i < len(run_keys):
-                metrics_sources[i].data = load_run_metrics(run_keys[i][0], metric=run_keys[i][1])
-            else:
-                metrics_sources[i].data = load_run_metrics()
+        metrics_source.data = load_run_metrics(runs, keys)
 
     def update_artifacts_dir():
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
@@ -299,7 +311,6 @@ def create_app(doc):
 
     # Metrics figure
 
-    # TODO: multiline+legend https://github.com/bokeh/bokeh/pull/8218
     metrics_figure = figure(
         x_axis_label='step',
         y_axis_label='value',
@@ -312,15 +323,14 @@ def create_app(doc):
             ("value", "@value"),
         ],
     )
-    for i in range(N_LINES):
-        metrics_figure.line(
-            x='step',
-            y='value',
-            source=metrics_sources[i],
-            color=palette[i],
-            legend_field='metric',  # legend_label, legend_field, legend_group
-            line_width=2,
-            line_alpha=0.8)
+    metrics_figure.multi_line(
+        xs='steps',
+        ys='values',
+        source=metrics_source,
+        color='color',
+        legend_field='legend',
+        line_width=2,
+        line_alpha=0.8)
 
     # === Artifacts ===
 
@@ -402,7 +412,7 @@ def create_app(doc):
     def stop_play():
         doc.remove_periodic_callback(play_callback)
 
-    tabs = Tabs(active=1, tabs=[
+    tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [keys_table, metrics_figure],
                 ])),
