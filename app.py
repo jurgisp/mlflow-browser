@@ -25,6 +25,9 @@ N_LINES = 10
 MAX_RUNS = 100
 DEFAULT_METRIC = '_loss'
 
+PLAY_INTERVAL = 500
+PLAY_DELAY = 5000
+
 mlflow_client = MlflowClient()
 
 
@@ -201,6 +204,13 @@ def create_app(doc):
     def step_selected(attr, old, new):
         update_frame()
     steps_source.selected.on_change('indices', step_selected)
+
+    def play_frame():
+        ix = steps_source.selected.indices
+        if len(ix) == 1:
+            steps_source.selected.indices = [ix[0] + 1]
+        else:
+            steps_source.selected.indices = [0]
 
     # Data update
 
@@ -381,7 +391,18 @@ def create_app(doc):
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
 
-    tabs = Tabs(active=0, tabs=[
+    btn_play = Toggle(label='Play', width=100)
+    btn_play.on_click(lambda on: doc.add_timeout_callback(start_play, PLAY_DELAY) if on else stop_play())
+    play_callback = None
+
+    def start_play():
+        nonlocal play_callback
+        play_callback = doc.add_periodic_callback(lambda: play_frame(), PLAY_INTERVAL)
+
+    def stop_play():
+        doc.remove_periodic_callback(play_callback)
+
+    tabs = Tabs(active=1, tabs=[
                 Panel(title="Metrics", child=layout([
                     [keys_table, metrics_figure],
                 ])),
@@ -399,7 +420,7 @@ def create_app(doc):
 
     doc.add_root(
         layout([
-            [runs_table, layouts.column([btn_refresh, btn_delete])],
+            [runs_table, layouts.column([btn_refresh, btn_delete, btn_play])],
             [tabs],
         ])
     )
