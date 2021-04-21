@@ -27,10 +27,12 @@ DEFAULT_METRIC = '_loss'
 PLAY_INTERVAL = 500
 PLAY_DELAY = 5000
 
+SMOOTHING_OPTS = [0, 5, 10, 20]
+
 mlflow_client = MlflowClient()
 
 
-def figure(tools='box_select,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False, **kwargs):
+def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False, **kwargs):
     fig = bokeh.plotting.figure(
         tools=tools,
         **kwargs,
@@ -73,7 +75,17 @@ def load_keys(runs_data=None):
     }
 
 
-def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC]):
+def apply_smoothing(xs, ys, bin_size=10):
+    # Drop last partial bin
+    n = (len(xs) // bin_size) * bin_size
+    xs, ys = xs[:n], ys[:n]
+    # For each bin: last(xs), mean(ys)
+    xs = xs.reshape(-1, bin_size)[:, -1]
+    ys = ys.reshape(-1, bin_size).mean(axis=1)
+    return xs, ys
+
+
+def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
     data = []
     i = 0
     for run in runs:
@@ -81,25 +93,29 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC]):
         for metric in metrics:
             with tools.Timer(f'mlflow.get_metric_history({metric})', verbose=True):
                 hist = mlflow_client.get_metric_history(run_id, metric)
-            data.append([
-                run_name,
-                metric,
-                f'{metric} [{run_name}]' if len(runs) > 1 else f'{metric}',
-                palette[i % len(palette)],
-                np.array([m.timestamp for m in hist]),
-                np.array([m.step for m in hist]),
-                np.array([m.value for m in hist]),
-            ])
-            i += 1
+            if len(hist) > 0:
+                # ts = np.array([m.timestamp for m in hist])
+                xs = np.array([m.step for m in hist])
+                ys = np.array([m.value for m in hist])
+                if smoothing_n:
+                    xs, ys = apply_smoothing(xs, ys, smoothing_n)
+                data.append([
+                    run_name,
+                    metric,
+                    f'{metric} [{run_name}]' if len(runs) > 1 else f'{metric}',
+                    palette[i % len(palette)],
+                    xs,
+                    ys,
+                ])
+                i += 1
     df = pd.DataFrame(data, columns=[
         'run',
         'metric',
         'legend',
         'color',
-        'timestamps',
         'steps',
         'values'
-        ])
+    ])
     return df
 
 
@@ -253,7 +269,8 @@ def create_app(doc):
             keys = [row['metric'] for row in keys]
         else:
             keys = [DEFAULT_METRIC]
-        metrics_source.data = load_run_metrics(runs, keys)
+        smoothing = SMOOTHING_OPTS[radio_smoothing.active]
+        metrics_source.data = load_run_metrics(runs, keys, smoothing)
 
     def update_artifacts_dir():
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
@@ -289,8 +306,12 @@ def create_app(doc):
                  TableColumn(field="start_time", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
                  TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
                  TableColumn(field="metrics._loss", title="loss", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/loss_model", title="eval_full/loss_model", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/loss_map_exp", title="eval_full/loss_map_exp", formatter=NumberFormatter(format="0.00")),
+                 #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
+                 #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0")),
                  ],
         width=1200,
         height=250,
@@ -305,13 +326,13 @@ def create_app(doc):
                  TableColumn(field="value", title="value", formatter=NumberFormatter(format="0.[000]")),
                  ],
         width=300,
-        height=600,
+        height=1000,
         selectable=True
     )
 
     # Metrics figure
 
-    metrics_figure = figure(
+    metrics_figure = p = figure(
         x_axis_label='step',
         y_axis_label='value',
         plot_width=1000,
@@ -319,11 +340,12 @@ def create_app(doc):
         tooltips=[
             ("run", "@run"),
             ("metric", "@metric"),
-            ("step", "@step"),
-            ("value", "@value"),
+            ("step", "$x{0,0}"),
+            ("value", "$y"),
         ],
     )
-    metrics_figure.multi_line(
+    p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
+    p.multi_line(
         xs='steps',
         ys='values',
         source=metrics_source,
@@ -331,6 +353,7 @@ def create_app(doc):
         legend_field='legend',
         line_width=2,
         line_alpha=0.8)
+    # p.legend.click_policy = 'hide'
 
     # === Artifacts ===
 
@@ -412,9 +435,14 @@ def create_app(doc):
     def stop_play():
         doc.remove_periodic_callback(play_callback)
 
+    radio_smoothing = RadioGroup(name='Smoothing',
+                                 labels=['No smoothing'] + [str(i) for i in SMOOTHING_OPTS[1:]],
+                                 active=0)
+    radio_smoothing.on_change('active', lambda attr, old, new: update_metrics())
+
     tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
-                    [keys_table, metrics_figure],
+                    [keys_table, metrics_figure, radio_smoothing],
                 ])),
                 Panel(title="Artifacts", child=layout([
                     [
@@ -438,3 +466,4 @@ def create_app(doc):
 
 if __name__.startswith('bokeh_app_'):
     create_app(curdoc())
+    curdoc().title = 'Mlflow'

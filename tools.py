@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore", "Your application has authenticated using end 
 
 
 def data_length(data):
-    if data == {}:
+    if len(data) == 0:
         return 0
     any_key = next(iter(data.keys()))
     return len(data[any_key])
