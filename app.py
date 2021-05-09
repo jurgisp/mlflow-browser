@@ -62,16 +62,21 @@ def load_keys(runs_data=None):
     # runs_data = {'metrics.1': [run1val, run2val], 'metrics.2': [...], ...}
     if runs_data is None:
         return {'metric': [], 'value': []}
-    metrics = {}
+    metrics = []
+    values1 = []
+    values2 = []
     for col in sorted(runs_data.keys()):
         if col.startswith('metrics.'):
             metrics_key = col.split('.')[1]
             vals = runs_data[col]
-            if len(vals) > 0 and (vals[0] is not None) and (not np.isnan(vals[0])):
-                metrics[metrics_key] = vals[0]  # Take first run value
+            if not all([v is None or np.isnan(v) for v in vals]):
+                metrics.append(metrics_key)
+                values1.append(vals[0])
+                values2.append(vals[1] if len(vals) >= 2 else np.nan)
     return {
-        'metric': list(metrics.keys()),
-        'value': list(metrics.values())
+        'metric': metrics,
+        'value1': np.array(values1),
+        'value2': np.array(values2)
     }
 
 
@@ -102,7 +107,7 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                 data.append([
                     run_name,
                     metric,
-                    f'{metric} [{run_name}]' if len(runs) > 1 else f'{metric}',
+                    f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric}',
                     palette[i % len(palette)],
                     xs,
                     ys,
@@ -307,8 +312,8 @@ def create_app(doc):
                  TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
                  TableColumn(field="metrics._loss", title="loss", formatter=NumberFormatter(format="0.00")),
                  TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/loss_model", title="eval_full/loss_model", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/loss_map_exp", title="eval_full/loss_map_exp", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_image", title="logprob_image (eval_full)", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_map", title="logprob_map (eval_full)", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
                  TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0")),
@@ -323,7 +328,8 @@ def create_app(doc):
     keys_table = DataTable(
         source=keys_source,
         columns=[TableColumn(field="metric", title="metric"),
-                 TableColumn(field="value", title="value", formatter=NumberFormatter(format="0.[000]")),
+                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]")),
+                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]")),
                  ],
         width=300,
         height=1000,
