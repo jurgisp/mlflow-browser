@@ -1,6 +1,4 @@
 # %%
-import itertools
-import tempfile
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -23,6 +21,7 @@ import artifacts_minigrid
 
 MAX_RUNS = 100
 DEFAULT_METRIC = '_loss'
+TZ_LOCAL = 'Europe/Vilnius'
 
 PLAY_INTERVAL = 500
 PLAY_DELAY = 5000
@@ -50,6 +49,7 @@ def load_runs():
         df = mlflow.search_runs(max_results=MAX_RUNS)
     df['id'] = df['run_id']
     df['name'] = df['tags.mlflow.runName']
+    df['start_time_local'] = df['start_time'].dt.tz_convert(TZ_LOCAL).dt.tz_localize(None)
     return df
 
 
@@ -309,7 +309,7 @@ def create_app(doc):
     runs_table = DataTable(
         source=runs_source,
         columns=[TableColumn(field="name", title="run"),
-                 TableColumn(field="start_time", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
+                 TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
                  TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
                  TableColumn(field="metrics._loss", title="loss", formatter=NumberFormatter(format="0.00")),
                  TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00")),
