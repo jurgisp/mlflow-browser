@@ -90,6 +90,21 @@ def apply_smoothing(xs, ys, bin_size=10):
     return xs, ys
 
 
+def calc_y_range(ys, margin=0.05):
+    range_min, range_max = min(ys), max(ys)
+    dr = range_max - range_min
+    range_min -= dr * margin
+    range_max += dr * margin
+    return range_min, range_max
+
+def calc_y_range_log(ys, min_val=1e-6, margin=1.05):
+    range_min, range_max = max(min(ys), min_val), max(max(ys), min_val * margin)
+    dr = range_max / range_min
+    range_min /= margin
+    range_max *= margin
+    return range_min, range_max
+
+
 def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
     data = []
     i = 0
@@ -105,24 +120,22 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                 ys = np.array([m.value for m in hist])
                 if smoothing_n:
                     xs, ys = apply_smoothing(xs, ys, smoothing_n)
-                data.append([
-                    run_name,
-                    metric,
-                    f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric}',
-                    palette[i % len(palette)],
-                    xs,
-                    ys,
-                ])
+                range_min, range_max = calc_y_range(ys)
+                range_min_log, range_max_log = calc_y_range_log(ys)
+                data.append({
+                    'run': run_name,
+                    'metric': metric,
+                    'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric}',
+                    'color': palette[i % len(palette)],
+                    'steps': xs,
+                    'values': ys,
+                    'range_min': range_min,
+                    'range_max': range_max,
+                    'range_min_log': range_min_log,
+                    'range_max_log': range_max_log,
+                })
                 i += 1
-    df = pd.DataFrame(data, columns=[
-        'run',
-        'metric',
-        'legend',
-        'color',
-        'steps',
-        'values'
-    ])
-    return df
+    return pd.DataFrame(data)
 
 
 def load_artifacts(run=None, path=None, dirs=False):
@@ -276,7 +289,14 @@ def create_app(doc):
         else:
             keys = [DEFAULT_METRIC]
         smoothing = SMOOTHING_OPTS[radio_smoothing.active]
-        metrics_source.data = load_run_metrics(runs, keys, smoothing)
+
+        df = load_run_metrics(runs, keys, smoothing)
+
+        if len(df) > 0:
+            metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
+            metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
+            
+        metrics_source.data = df
 
     def update_artifacts_dir():
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
@@ -328,39 +348,44 @@ def create_app(doc):
 
     keys_table = DataTable(
         source=keys_source,
-        columns=[TableColumn(field="metric", title="metric"),
-                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]")),
-                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]")),
+        columns=[TableColumn(field="metric", title="metric", width=150),
+                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]"), width=50),
+                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]"), width=50),
                  ],
         width=300,
-        height=1000,
-        selectable=True
+        height=600,
+        fit_columns=False,
+        selectable=True,
     )
 
     # Metrics figure
 
-    metrics_figure = p = figure(
-        x_axis_label='step',
-        y_axis_label='value',
-        plot_width=1000,
+    metrics_figures = []
+    for y_axis_type in ['linear', 'log']:
+        p = figure(
+            x_axis_label='step',
+            y_axis_label='value',
+            plot_width=1000,
         plot_height=600,
         tooltips=[
             ("run", "@run"),
             ("metric", "@metric"),
-            ("step", "$x{0,0}"),
-            ("value", "$y"),
-        ],
-    )
-    p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
-    p.multi_line(
+                ("step", "$x{0,0}"),
+                ("value", "$y"),
+            ],
+            y_axis_type=y_axis_type,
+            y_range=(1, 10),
+        )
+        p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
+        p.multi_line(
         xs='steps',
         ys='values',
         source=metrics_source,
         color='color',
-        legend_field='legend',
-        line_width=2,
-        line_alpha=0.8)
-    # p.legend.click_policy = 'hide'
+            legend_field='legend',
+            line_width=2,
+            line_alpha=0.8)
+        metrics_figures.append(p)
 
     # === Artifacts ===
 
@@ -449,7 +474,14 @@ def create_app(doc):
 
     tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
-                    [keys_table, metrics_figure, radio_smoothing],
+                    [
+                        keys_table,
+                        Tabs(active=0, tabs=[
+                            Panel(title="Linear", child=metrics_figures[0]),
+                            Panel(title="Log", child=metrics_figures[1]),
+                        ]),
+                        radio_smoothing,
+                    ],
                 ])),
                 Panel(title="Artifacts", child=layout([
                     [
