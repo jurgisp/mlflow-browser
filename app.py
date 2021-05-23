@@ -47,6 +47,8 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
 def load_runs():
     with tools.Timer(f'mlflow.search_runs()', verbose=True):
         df = mlflow.search_runs(max_results=MAX_RUNS)
+    if len(df) == 0:
+        return df
     df['id'] = df['run_id']
     df['name'] = df['tags.mlflow.runName']
     df['start_time_local'] = df['start_time'].dt.tz_convert(TZ_LOCAL).dt.tz_localize(None)
@@ -333,8 +335,8 @@ def create_app(doc):
                  TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
                  TableColumn(field="metrics._loss", title="loss", formatter=NumberFormatter(format="0.00")),
                  TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_image", title="logprob_image (eval_full)", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_map", title="logprob_map (eval_full)", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_image", title="logprob_image", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_map_last", title="logprob_map_last", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
                  TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0")),
@@ -417,15 +419,17 @@ def create_app(doc):
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
             #
-            TableColumn(field="reward_rec", formatter=fmt),
+            # TableColumn(field="reward_rec", formatter=fmt),
             #
-            TableColumn(field="action_pred", formatter=fmt),
-            TableColumn(field="reward_pred", formatter=fmt),
-            TableColumn(field="discount_pred", formatter=fmt),
+            # TableColumn(field="action_pred", formatter=fmt),
+            # TableColumn(field="reward_pred", formatter=fmt),
+            # TableColumn(field="discount_pred", formatter=fmt),
             #
-            TableColumn(field="value", formatter=fmt),
-            TableColumn(field="value_target", formatter=fmt),
-            TableColumn(field="loss_kl", title="kl", formatter=fmt),
+            # TableColumn(field="value", formatter=fmt),
+            # TableColumn(field="value_target", formatter=fmt),
+            #
+            TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
+            TableColumn(field="loss_image", title="loss_img", formatter=fmt),
         ],
         width=600,
         height=600,

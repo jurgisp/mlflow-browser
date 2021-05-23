@@ -70,6 +70,7 @@ def parse_d2_wm_predict(data):
         discount_pred=flatten(data.get('discount_pred', nans)),
         #
         loss_kl=flatten(data.get('loss_kl', nans)),
+        loss_image=flatten(data.get('loss_image', nans)),
         #
         value=flatten(data.get('behav_value', nans)),
         action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,

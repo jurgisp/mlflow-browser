@@ -25,6 +25,7 @@ def render_obs(obs, tile_size=16):
         img = None
         for i in range(obs.shape[-1]):
             # Combine image filled by each category according to prob weights
+            # TODO: this doesn't work for drawing agent, because _render_obs() can not fill the image with agents in each cell
             img_cat = _render_obs(np.full(obs.shape[:2], i), tile_size=tile_size)
             weight_cat = np.repeat(np.repeat(obs[..., i].T, tile_size, axis=0), tile_size, axis=1)
             if img is None:
