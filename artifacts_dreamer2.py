@@ -45,8 +45,6 @@ def parse_d2_wm_predict(data):
     i_batch, i_step = np.indices((b, t))
     i_batch_step = i_batch * 1000 + i_step
 
-    print('Artifact data: ' + str({k: v.shape for k, v in data.items()}))
-
     if data['image'].shape[-1] == 1:
         # Backwards-compatibility (7,7,1) => (7,7)
         data['image'] = data['image'][..., 0]
@@ -56,6 +54,9 @@ def parse_d2_wm_predict(data):
 
     return dict(
         step=flatten(i_batch_step),
+        episode=flatten(i_batch),
+        episode_step=flatten(i_step),
+        #
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
         image=flatten(data['image']),
@@ -71,6 +72,10 @@ def parse_d2_wm_predict(data):
         #
         loss_kl=flatten(data.get('loss_kl', nans)),
         loss_image=flatten(data.get('loss_image', nans)),
+        loss_map=flatten(data.get('loss_map', nans)),
+        logprob_img=flatten(data.get('logprob_img', nans)),
+        entropy_prior=flatten(data.get('entropy_prior', nans)),
+        entropy_post=flatten(data.get('entropy_post', nans)),
         #
         value=flatten(data.get('behav_value', nans)),
         action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,
@@ -81,10 +86,17 @@ def parse_d2_episodes(data):
     n = data['reward'].shape[0]
     i_step = np.arange(n)
 
+    if data['image'].shape[-1] == 1:
+        # Backwards-compatibility (7,7,1) => (7,7)
+        data['image'] = data['image'][..., 0]
+
+    noimg = np.zeros_like(data['image'])
+
     return dict(
         step=i_step,
         action=data['action'].argmax(axis=-1),
         reward=data['reward'],
-        image=data['image'][..., 0],  # (7,7,1) => (7,7)
-        discount_pred=data['discount'],
+        image=data['map_centered'],
+        map_agent=data.get('map_agent', noimg),
+        map=data.get('map', noimg),
     )

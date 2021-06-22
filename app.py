@@ -171,17 +171,21 @@ def load_artifact_steps(run_id, artifact_path):
             print(f'Artifact extension not supported: {artifact_path}')
             return {}
 
+    print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))
+
+    data_parsed = {}
     if artifact_path.startswith('d2_train_batch/'):
-        return artifacts_dreamer2.parse_d2_train_batch(data)
+        data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
+    elif artifact_path.startswith('d2_wm_predict'):
+        data_parsed =  artifacts_dreamer2.parse_d2_wm_predict(data)
+    elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes/'):
+        data_parsed =  artifacts_dreamer2.parse_d2_episodes(data)
+    else:
+        print(f'Artifact type not supported: {artifact_path}')
 
-    if artifact_path.startswith('d2_wm_predict'):
-        return artifacts_dreamer2.parse_d2_wm_predict(data)
+    print('Artifact parsed: ' + str({k: v.shape for k, v in data_parsed.items()}))
 
-    if artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/'):
-        return artifacts_dreamer2.parse_d2_episodes(data)
-
-    print(f'Artifact type not supported: {artifact_path}')
-    return {}
+    return data_parsed
 
 
 def load_frame(step_data=None,
