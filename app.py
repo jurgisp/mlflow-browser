@@ -95,11 +95,14 @@ def apply_smoothing(xs, ys, bin_size=10):
 def calc_y_range(ys, margin=0.05):
     range_min, range_max = min(ys), max(ys)
     dr = range_max - range_min
+    if dr == 0:
+        dr = 1.0
     range_min -= dr * margin
     range_max += dr * margin
     return range_min, range_max
 
-def calc_y_range_log(ys, min_val=1e-6, margin=1.05):
+
+def calc_y_range_log(ys, min_val=1e-4, margin=1.05):
     range_min, range_max = max(min(ys), min_val), max(max(ys), min_val * margin)
     dr = range_max / range_min
     range_min /= margin
@@ -114,7 +117,11 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
         run_id, run_name = run['id'], run['name']
         for metric in metrics:
             with tools.Timer(f'mlflow.get_metric_history({metric})', verbose=True):
-                hist = mlflow_client.get_metric_history(run_id, metric)
+                try:
+                    hist = mlflow_client.get_metric_history(run_id, metric)
+                except Exception as e:
+                    hist = []
+                    print(f'ERROR fetching mlflow: {e}')
             if len(hist) > 0:
                 hist.sort(key=lambda m: m.timestamp)
                 # ts = np.array([m.timestamp for m in hist])
@@ -127,7 +134,7 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                 data.append({
                     'run': run_name,
                     'metric': metric,
-                    'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric}',
+                    'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric} [{run_name}]',
                     'color': palette[i % len(palette)],
                     'steps': xs,
                     'values': ys,
@@ -135,6 +142,7 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                     'range_max': range_max,
                     'range_min_log': range_min_log,
                     'range_max_log': range_max_log,
+                    'steps_max': max(xs)
                 })
                 i += 1
     return pd.DataFrame(data)
@@ -218,6 +226,7 @@ def create_app(doc):
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
+    steps_agg_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
 
     # Callbacks
@@ -296,8 +305,10 @@ def create_app(doc):
 
         if len(df) > 0:
             metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
+            metrics_figures[0].x_range.update(start=0, end=max(df['steps_max']))
             metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
-            
+            metrics_figures[1].x_range.update(start=0, end=max(df['steps_max']))
+
         metrics_source.data = df
 
     def update_artifacts_dir():
@@ -316,9 +327,15 @@ def create_app(doc):
         run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
         artifact = selected_row_single(artifacts_source)
         if run and artifact:
-            steps_source.data = load_artifact_steps(run['id'], artifact['path'])
+            data = load_artifact_steps(run['id'], artifact['path'])
+            steps_source.data = data
+
+            df = pd.DataFrame(data, columns=['episode', 'episode_step', 'loss_map', 'entropy_prior', 'entropy_post'])
+            dfg = df.groupby('episode').agg(list)
+            steps_agg_source.data = dfg
         else:
             steps_source.data = {}
+            steps_agg_source.data = {}
 
     def update_frame():
         step = selected_row_single(steps_source)
@@ -368,22 +385,22 @@ def create_app(doc):
             x_axis_label='step',
             y_axis_label='value',
             plot_width=1000,
-        plot_height=600,
-        tooltips=[
-            ("run", "@run"),
-            ("metric", "@metric"),
+            plot_height=600,
+            tooltips=[
+                ("run", "@run"),
+                ("metric", "@metric"),
                 ("step", "$x{0,0}"),
                 ("value", "$y"),
             ],
             y_axis_type=y_axis_type,
-            y_range=(1, 10),
+            y_range=(1e-6, 100),
         )
         p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
         p.multi_line(
-        xs='steps',
-        ys='values',
-        source=metrics_source,
-        color='color',
+            xs='steps',
+            ys='values',
+            source=metrics_source,
+            color='color',
             legend_field='legend',
             line_width=2,
             line_alpha=0.8)
@@ -428,13 +445,34 @@ def create_app(doc):
             # TableColumn(field="value", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
             #
-            TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
-            TableColumn(field="loss_image", title="loss_img", formatter=fmt),
+            TableColumn(field="entropy_prior", title="entropy_prior", formatter=fmt),
+            TableColumn(field="entropy_post", title="entropy_post", formatter=fmt),
+
+            # TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
+            # TableColumn(field="loss_image", title="loss_img", formatter=fmt),
+            TableColumn(field="logprob_img", title="logprob_img", formatter=fmt),
+            TableColumn(field="loss_map", title="loss_map", formatter=fmt),
         ],
         width=600,
         height=600,
         selectable=True
     )
+
+    steps_figure = fig = figure(
+            x_axis_label='step',
+            # y_axis_label='value',
+            plot_width=800,
+            plot_height=300,
+            # tooltips=[
+            #     ("run", "@run"),
+            #     ("metric", "@metric"),
+            #     ("step", "$x{0,0}"),
+            #     ("value", "$y"),
+            # ],
+        )
+    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[0], legend_label='prior ent.')
+    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[1], legend_label='posterior ent.')
+    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[2], legend_label='kl')
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
@@ -494,6 +532,7 @@ def create_app(doc):
                         layout([
                             [frame_figure_1, frame_figure_2, frame_figure_3],
                             [frame_figure_4, frame_figure_5, frame_figure_6],
+                            [steps_figure],
                         ])
                     ],
                 ])),
