@@ -96,7 +96,7 @@ def parse_d2_episodes(data):
         step=i_step,
         action=data['action'].argmax(axis=-1),
         reward=data['reward'],
-        image=data['map_centered'],
+        image=data['image'],
         map_agent=data.get('map_agent', noimg),
         map=data.get('map', noimg),
     )

@@ -205,7 +205,12 @@ def load_frame(step_data=None,
     data = {}
     for k in image_keys:
         obs = sd.get(k)
-        img = artifacts_minigrid.render_obs(obs)
+        if obs is None:
+            img = np.zeros((1, 1, 3))
+        elif obs.shape[-1] == 3 and len(obs.shape) == 3:  # Looks like an image?
+            img = obs
+        else:
+            img = artifacts_minigrid.render_obs(obs)  # Try MiniGrid
         img = tools.to_rgba(img)
         data[k] = [img]
     return data
