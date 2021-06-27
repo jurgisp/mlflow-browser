@@ -78,13 +78,17 @@ def parse_d2_wm_predict(data):
         entropy_post=flatten(data.get('entropy_post', nans)),
         #
         value=flatten(data.get('behav_value', nans)),
-        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else [np.nan] * n,
+        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else np.array([np.nan] * n),
     )
 
 
 def parse_d2_episodes(data):
     n = data['reward'].shape[0]
     i_step = np.arange(n)
+
+    if 'image' not in data and 'image_t' in data:
+        data['image'] = data['image_t'].transpose(3, 0, 1, 2)  # CHWN => NCHW
+        del data['image_t']
 
     if data['image'].shape[-1] == 1:
         # Backwards-compatibility (7,7,1) => (7,7)

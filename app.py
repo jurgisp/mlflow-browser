@@ -205,9 +205,15 @@ def load_frame(step_data=None,
     data = {}
     for k in image_keys:
         obs = sd.get(k)
+        
+        # TODO: move this logic to artifacts
         if obs is None:
-            img = np.zeros((1, 1, 3))
-        elif obs.shape[-1] == 3 and len(obs.shape) == 3:  # Looks like an image?
+            obs = np.zeros((1, 1, 3))
+
+        if len(obs.shape) == 3 and obs.shape[1] == obs.shape[2]:  # Looks transposed (C,W,W)
+            obs = obs.transpose(1, 2, 0)  # (C,W,W) => (W,W,C)
+
+        if obs.shape[-1] == 3 and len(obs.shape) == 3:  # Looks like an image (H,W,C)
             img = obs
         else:
             img = artifacts_minigrid.render_obs(obs)  # Try MiniGrid

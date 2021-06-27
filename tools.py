@@ -51,6 +51,12 @@ def download_artifact_npz(client, run_id, artifact_path):
 
 
 def to_rgba(img, alpha=255):
+    if img.min() < 0:  # (-0.5,0.5)
+        img = img + 0.5
+    if img.max() < 1.01: # (0,1)
+        img = img * 255
+    img = img.clip(0, 255).astype(np.uint8)
+
     rgba = np.zeros(img.shape[0:2], dtype=np.uint32)
     view = rgba.view(dtype=np.uint8).reshape(rgba.shape + (4,))
     view[:, :, 0:3] = np.flipud(img)
