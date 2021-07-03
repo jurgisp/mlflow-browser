@@ -176,9 +176,9 @@ def load_artifact_steps(run_id, artifact_path):
     print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))
 
     data_parsed = {}
-    if artifact_path.startswith('d2_train_batch/'):
-        data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
-    elif artifact_path.startswith('d2_wm_predict'):
+    # if artifact_path.startswith('d2_train_batch/'):
+    #     data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
+    if artifact_path.startswith('d2_wm_predict'):
         data_parsed =  artifacts_dreamer2.parse_d2_wm_predict(data)
     elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes/'):
         data_parsed =  artifacts_dreamer2.parse_d2_episodes(data)
@@ -207,7 +207,7 @@ def load_frame(step_data=None,
     data = {}
     for k in image_keys:
         obs = sd.get(k)
-        
+
         # TODO: move this logic to artifacts
         if obs is None:
             obs = np.zeros((1, 1, 3))
@@ -452,6 +452,7 @@ def create_app(doc):
             TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
+            TableColumn(field="terminal", title='terminal', formatter=fmt),
             #
             # TableColumn(field="reward_rec", formatter=fmt),
             #
@@ -462,8 +463,8 @@ def create_app(doc):
             # TableColumn(field="value", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
             #
-            TableColumn(field="entropy_prior", title="entropy_prior", formatter=fmt),
-            TableColumn(field="entropy_post", title="entropy_post", formatter=fmt),
+            # TableColumn(field="entropy_prior", title="entropy_prior", formatter=fmt),
+            # TableColumn(field="entropy_post", title="entropy_post", formatter=fmt),
 
             # TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
             # TableColumn(field="loss_image", title="loss_img", formatter=fmt),
@@ -487,9 +488,10 @@ def create_app(doc):
             #     ("value", "$y"),
             # ],
         )
-    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[0], legend_label='prior ent.')
-    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[1], legend_label='posterior ent.')
-    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[2], legend_label='kl')
+    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map')
+    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='kl')
+    # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[0], legend_label='prior ent.')
+    # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[1], legend_label='posterior ent.')
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
