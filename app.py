@@ -93,6 +93,7 @@ def apply_smoothing(xs, ys, bin_size=10):
 
 
 def calc_y_range(ys, margin=0.05):
+    ys = ys[np.isfinite(ys)]
     range_min, range_max = min(ys), max(ys)
     dr = range_max - range_min
     if dr == 0:
@@ -103,8 +104,9 @@ def calc_y_range(ys, margin=0.05):
 
 
 def calc_y_range_log(ys, min_val=1e-4, margin=1.05):
-    range_min, range_max = max(min(ys), min_val), max(max(ys), min_val * margin)
-    dr = range_max / range_min
+    ys = ys[np.isfinite(ys)]
+    range_min = max(min(ys), min_val)
+    range_max = max(max(ys), min_val * margin)
     range_min /= margin
     range_max *= margin
     return range_min, range_max
