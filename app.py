@@ -243,7 +243,6 @@ def create_app(doc):
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
-    steps_agg_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
 
     # Callbacks
@@ -346,13 +345,8 @@ def create_app(doc):
         if run and artifact:
             data = load_artifact_steps(run['id'], artifact['path'])
             steps_source.data = data
-
-            df = pd.DataFrame(data, columns=['episode', 'episode_step', 'loss_map', 'entropy_prior', 'entropy_post'])
-            dfg = df.groupby('episode').agg(list)
-            steps_agg_source.data = dfg
         else:
             steps_source.data = {}
-            steps_agg_source.data = {}
 
     def update_frame():
         step = selected_row_single(steps_source)
@@ -452,7 +446,7 @@ def create_app(doc):
             TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
-            TableColumn(field="terminal", title='terminal', formatter=fmt),
+            # TableColumn(field="terminal", title='terminal', formatter=fmt),
             #
             # TableColumn(field="reward_rec", formatter=fmt),
             #
@@ -466,8 +460,8 @@ def create_app(doc):
             # TableColumn(field="entropy_prior", title="entropy_prior", formatter=fmt),
             # TableColumn(field="entropy_post", title="entropy_post", formatter=fmt),
 
-            # TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
-            # TableColumn(field="loss_image", title="loss_img", formatter=fmt),
+            TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
+            TableColumn(field="loss_image", title="loss_img", formatter=fmt),
             TableColumn(field="logprob_img", title="logprob_img", formatter=fmt),
             TableColumn(field="loss_map", title="loss_map", formatter=fmt),
         ],
@@ -488,10 +482,14 @@ def create_app(doc):
             #     ("value", "$y"),
             # ],
         )
-    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map')
-    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='kl')
+    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
+    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
+    fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
+    # fig.circle(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl')
+    # fig.circle(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img')
     # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[0], legend_label='prior ent.')
     # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[1], legend_label='posterior ent.')
+    fig.legend.click_policy = "hide"
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)

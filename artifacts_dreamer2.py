@@ -39,7 +39,12 @@ def flatten(x):
 #     )
 
 
-def parse_d2_wm_predict(data):
+def parse_d2_wm_predict(data, take_episodes=1):
+    for k in data.keys():
+        data[k] = data[k][:take_episodes]
+        if data[k].dtype == np.float16:
+            data[k] = data[k].astype(np.float32)  # Operations are slow with float16
+
     b, t = data['reward'].shape
     n = b * t
     i_batch, i_step = np.indices((b, t))
