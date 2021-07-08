@@ -82,14 +82,14 @@ def load_keys(runs_data=None):
     }
 
 
-def apply_smoothing(xs, ys, bin_size=10):
+def apply_smoothing(xs, ts, ys, bin_size=10):
     # Drop last partial bin
     n = (len(xs) // bin_size) * bin_size
-    xs, ys = xs[:n], ys[:n]
-    # For each bin: last(xs), mean(ys)
-    xs = xs.reshape(-1, bin_size)[:, -1]
-    ys = ys.reshape(-1, bin_size).mean(axis=1)
-    return xs, ys
+    # For each bin: last(xs), mean(ys), last(ts)
+    xs = xs[:n].reshape(-1, bin_size)[:, -1]
+    ts = ts[:n].reshape(-1, bin_size)[:, -1]
+    ys = ys[:n].reshape(-1, bin_size).mean(axis=1)
+    return xs, ts, ys
 
 
 def calc_y_range(ys, margin=0.05):
@@ -126,11 +126,11 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                     print(f'ERROR fetching mlflow: {e}')
             if len(hist) > 0:
                 hist.sort(key=lambda m: m.timestamp)
-                # ts = np.array([m.timestamp for m in hist])
                 xs = np.array([m.step for m in hist])
+                ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
                 ys = np.array([m.value for m in hist])
                 if smoothing_n:
-                    xs, ys = apply_smoothing(xs, ys, smoothing_n)
+                    xs, ts, ys = apply_smoothing(xs, ts, ys, smoothing_n)
                 range_min, range_max = calc_y_range(ys)
                 range_min_log, range_max_log = calc_y_range_log(ys)
                 data.append({
@@ -139,12 +139,14 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                     'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric} [{run_name}]',
                     'color': palette[i % len(palette)],
                     'steps': xs,
+                    'time': ts,
                     'values': ys,
                     'range_min': range_min,
                     'range_max': range_max,
                     'range_min_log': range_min_log,
                     'range_max_log': range_max_log,
-                    'steps_max': max(xs)
+                    'steps_max': max(xs),
+                    'time_max': max(ts),
                 })
                 i += 1
     return pd.DataFrame(data)
@@ -320,10 +322,18 @@ def create_app(doc):
         df = load_run_metrics(runs, keys, smoothing)
 
         if len(df) > 0:
+            # step-linear
             metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
             metrics_figures[0].x_range.update(start=0, end=max(df['steps_max']))
+            # step-log
             metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
             metrics_figures[1].x_range.update(start=0, end=max(df['steps_max']))
+            # time-linear
+            metrics_figures[2].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
+            metrics_figures[2].x_range.update(start=0, end=max(df['time_max']))
+            # time-log
+            metrics_figures[3].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
+            metrics_figures[3].x_range.update(start=0, end=max(df['time_max']))
 
         metrics_source.data = df
 
@@ -391,31 +401,32 @@ def create_app(doc):
     # Metrics figure
 
     metrics_figures = []
-    for y_axis_type in ['linear', 'log']:
-        p = figure(
-            x_axis_label='step',
-            y_axis_label='value',
-            plot_width=1000,
-            plot_height=600,
-            tooltips=[
-                ("run", "@run"),
-                ("metric", "@metric"),
-                ("step", "$x{0,0}"),
-                ("value", "$y"),
-            ],
-            y_axis_type=y_axis_type,
-            y_range=(1e-6, 100),
-        )
-        p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
-        p.multi_line(
-            xs='steps',
-            ys='values',
-            source=metrics_source,
-            color='color',
-            legend_field='legend',
-            line_width=2,
-            line_alpha=0.8)
-        metrics_figures.append(p)
+    for x_axis in ['steps', 'time']:
+        for y_axis_type in ['linear', 'log']:
+            p = figure(
+                x_axis_label=x_axis,
+                y_axis_label='value',
+                plot_width=1000,
+                plot_height=600,
+                tooltips=[
+                    ("run", "@run"),
+                    ("metric", "@metric"),
+                    (x_axis, "$x{0,0}"),
+                    ("value", "$y"),
+                ],
+                y_axis_type=y_axis_type,
+                y_range=(1e-6, 100),
+            )
+            p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
+            p.multi_line(
+                xs=x_axis,
+                ys='values',
+                source=metrics_source,
+                color='color',
+                legend_field='legend',
+                line_width=2,
+                line_alpha=0.8)
+            metrics_figures.append(p)
 
     # === Artifacts ===
 
@@ -447,19 +458,14 @@ def create_app(doc):
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
             # TableColumn(field="terminal", title='terminal', formatter=fmt),
-            #
             # TableColumn(field="reward_rec", formatter=fmt),
-            #
             # TableColumn(field="action_pred", formatter=fmt),
             # TableColumn(field="reward_pred", formatter=fmt),
             # TableColumn(field="discount_pred", formatter=fmt),
-            #
             # TableColumn(field="value", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
-            #
             # TableColumn(field="entropy_prior", title="entropy_prior", formatter=fmt),
             # TableColumn(field="entropy_post", title="entropy_post", formatter=fmt),
-
             TableColumn(field="loss_kl", title="loss_kl", formatter=fmt),
             TableColumn(field="loss_image", title="loss_img", formatter=fmt),
             TableColumn(field="logprob_img", title="logprob_img", formatter=fmt),
@@ -536,8 +542,10 @@ def create_app(doc):
                     [
                         keys_table,
                         Tabs(active=0, tabs=[
-                            Panel(title="Linear", child=metrics_figures[0]),
-                            Panel(title="Log", child=metrics_figures[1]),
+                            Panel(title="Linear/Steps", child=metrics_figures[0]),
+                            Panel(title="Log/Steps", child=metrics_figures[1]),
+                            Panel(title="Linear/Time", child=metrics_figures[2]),
+                            Panel(title="Log/Time", child=metrics_figures[3]),
                         ]),
                         radio_smoothing,
                     ],
