@@ -371,12 +371,13 @@ def create_app(doc):
         columns=[TableColumn(field="name", title="run"),
                  TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
                  TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
-                 TableColumn(field="metrics._loss", title="loss", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_image", title="logprob_image", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_map_last", title="logprob_map_last", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics._loss", title="train/loss", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.loss_model", title="train/loss_model", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_img", title="eval/logprob_img", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.eval_full/logprob_map", title="eval/logprob_map", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
                  #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
+                 TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0")),
                  TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0")),
                  ],
         width=1200,
@@ -491,10 +492,8 @@ def create_app(doc):
     fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
     fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
     fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
-    # fig.circle(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl')
-    # fig.circle(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img')
-    # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[0], legend_label='prior ent.')
-    # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[1], legend_label='posterior ent.')
+    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[3], legend_label='prior ent.', nonselection_alpha=1)
+    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[4], legend_label='posterior ent.', nonselection_alpha=1)
     fig.legend.click_policy = "hide"
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
