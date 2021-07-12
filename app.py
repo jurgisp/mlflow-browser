@@ -44,9 +44,20 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     return fig
 
 
-def load_runs():
-    with tools.Timer(f'mlflow.search_runs()', verbose=True):
-        df = mlflow.search_runs(max_results=MAX_RUNS)
+def load_experiments():
+    with tools.Timer(f'mlflow.list_experiments()', verbose=True):
+        experiments = mlflow_client.list_experiments()
+    df = pd.DataFrame([{
+        'id': int(e.experiment_id),
+        'name': e.name
+    } for e in experiments])
+    df = df.sort_values('id', ascending=False)
+    return df
+
+
+def load_runs(experiment_ids=None):
+    with tools.Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
+        df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
     if len(df) == 0:
         return df
     df['id'] = df['run_id']
@@ -181,9 +192,9 @@ def load_artifact_steps(run_id, artifact_path):
     # if artifact_path.startswith('d2_train_batch/'):
     #     data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
     if artifact_path.startswith('d2_wm_predict'):
-        data_parsed =  artifacts_dreamer2.parse_d2_wm_predict(data)
+        data_parsed = artifacts_dreamer2.parse_d2_wm_predict(data)
     elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes/'):
-        data_parsed =  artifacts_dreamer2.parse_d2_episodes(data)
+        data_parsed = artifacts_dreamer2.parse_d2_episodes(data)
     else:
         print(f'Artifact type not supported: {artifact_path}')
 
@@ -238,6 +249,7 @@ def create_app(doc):
 
     # === Data sources ===
 
+    experiments_source = ColumnDataSource(data=load_experiments())
     runs_source = ColumnDataSource(data=load_runs())
     keys_source = ColumnDataSource(data=load_keys())
     metrics_source = ColumnDataSource(data=load_run_metrics())
@@ -257,6 +269,11 @@ def create_app(doc):
         update_metrics()
         # artifacts
         update_artifacts()
+
+    def experiment_selected(attr, old, new):
+        update_runs()
+        runs_source.selected.indices = []
+    experiments_source.selected.on_change('indices', experiment_selected)
 
     def run_selected(attr, old, new):
         # metrics
@@ -298,7 +315,8 @@ def create_app(doc):
     # Data update
 
     def update_runs():
-        runs_source.data = load_runs()
+        selected_experiments = selected_columns(experiments_source)
+        runs_source.data = load_runs(selected_experiments['id'])
 
     def delete_run_callback():
         runs = selected_rows(runs_source)
@@ -363,6 +381,20 @@ def create_app(doc):
         frame_source.data = load_frame(step)
 
     # === Layout ===
+
+    # Experiments table
+
+    experiments_table = DataTable(
+        source=experiments_source,
+        columns=[
+            # TableColumn(field="id", width=50),
+            TableColumn(field="name", width=150),
+        ],
+        width=200,
+        height=250,
+        # fit_columns=False,
+        selectable=True,
+    )
 
     # Runs table
 
@@ -478,17 +510,17 @@ def create_app(doc):
     )
 
     steps_figure = fig = figure(
-            x_axis_label='step',
-            # y_axis_label='value',
-            plot_width=800,
-            plot_height=300,
-            # tooltips=[
-            #     ("run", "@run"),
-            #     ("metric", "@metric"),
-            #     ("step", "$x{0,0}"),
-            #     ("value", "$y"),
-            # ],
-        )
+        x_axis_label='step',
+        # y_axis_label='value',
+        plot_width=800,
+        plot_height=300,
+        # tooltips=[
+        #     ("run", "@run"),
+        #     ("metric", "@metric"),
+        #     ("step", "$x{0,0}"),
+        #     ("value", "$y"),
+        # ],
+    )
     fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
     fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
     fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
@@ -564,7 +596,7 @@ def create_app(doc):
 
     doc.add_root(
         layout([
-            [runs_table, layouts.column([btn_refresh, btn_delete, btn_play])],
+            [experiments_table, runs_table, layouts.column([btn_refresh, btn_delete, btn_play])],
             [tabs],
         ])
     )
