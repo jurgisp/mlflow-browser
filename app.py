@@ -173,7 +173,8 @@ def load_artifacts(run=None, path=None, dirs=False):
         artifacts = list(reversed(artifacts))  # Order newest-first
     return {
         'path': [f.path for f in artifacts],
-        'file_size': [f.file_size for f in artifacts],
+        'name': [f.path.split('/')[-1] for f in artifacts],
+        'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
         'is_dir': [f.is_dir for f in artifacts],
     }
 
@@ -398,22 +399,27 @@ def create_app(doc):
 
     # Runs table
 
+    w = 80
     runs_table = DataTable(
         source=runs_source,
-        columns=[TableColumn(field="name", title="run"),
-                 TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
-                 TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0")),
-                 TableColumn(field="metrics._loss", title="train/loss", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.loss_model", title="train/loss_model", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_img", title="eval/logprob_img", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.eval_full/logprob_map", title="eval/logprob_map", formatter=NumberFormatter(format="0.00")),
-                 #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00")),
-                 #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00")),
-                 TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0")),
-                 TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0")),
-                 ],
-        width=1200,
+        columns=[
+            TableColumn(field="name", title="run", width=150),
+            TableColumn(field="run_id", title="id", width=30),
+            TableColumn(field="experiment_id", title="exp", width=30),
+            TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
+            TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.eval_full/logprob_img", title="eval/img", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.eval_full/logprob_map", title="eval/map", formatter=NumberFormatter(format="0.00"), width=w),
+            #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
+            #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
+            TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
+        ],
+        width=1000,
         height=250,
+        fit_columns=False,
         selectable=True
     )
 
@@ -475,7 +481,10 @@ def create_app(doc):
 
     artifacts_table = DataTable(
         source=artifacts_source,
-        columns=[TableColumn(field="path", title="file")],
+        columns=[
+            TableColumn(field="name"),
+            TableColumn(field="file_size_mb", title='size (MB)', formatter=NumberFormatter(format="0,0"))
+            ],
         width=200,
         height=500,
         selectable=True
@@ -524,8 +533,8 @@ def create_app(doc):
     fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
     fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
     fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
-    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[3], legend_label='prior ent.', nonselection_alpha=1)
-    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[4], legend_label='posterior ent.', nonselection_alpha=1)
+    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[3], legend_label='prior ent.', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[4], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
     fig.legend.click_policy = "hide"
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
@@ -596,7 +605,11 @@ def create_app(doc):
 
     doc.add_root(
         layout([
-            [experiments_table, runs_table, layouts.column([btn_refresh, btn_delete, btn_play])],
+            [
+                runs_table,
+                experiments_table,
+                layouts.column([btn_refresh, btn_delete, btn_play]),
+            ],
             [tabs],
         ])
     )
