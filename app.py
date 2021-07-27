@@ -211,12 +211,16 @@ def load_frame(step_data=None,
         return {k: [] for k in image_keys}
 
     sd = step_data
-    if 'map_rec' in sd and 'map_agent' in sd and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
-        # map_rec is agent-centric
-        # transform it for easier viewing
-        map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
-        agent_pos, agent_dir = artifacts_minigrid._get_agent_pos(map_agent)
-        sd['map_rec_global'] = artifacts_minigrid._map_centric_to_global(sd['map_rec'], agent_pos, agent_dir, map_agent.shape[:2])
+    if 'map_rec' in sd and 'map_agent' in sd:
+        # transform map_rec -> map_rec_global, if it is agent-centric
+        if len(sd['map_rec'].shape) == 2 and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
+            # map_rec is bigger than map_agent (categorica) - must be agent-centric
+            map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
+            agent_pos, agent_dir = artifacts_minigrid._get_agent_pos(map_agent)
+            sd['map_rec_global'] = artifacts_minigrid._map_centric_to_global(sd['map_rec'], agent_pos, agent_dir, map_agent.shape[:2])
+        if len(sd['map_rec'].shape) == 3 and sd['map_rec'].shape[-1] == 3 and 'agent_pos' in sd:
+            # map_rec is RGB - must be agent centric
+            sd['map_rec_global'] = artifacts_minigrid.map_centric_to_global_rgb(sd['map_rec'], sd['agent_pos'], sd['agent_dir'], sd['map_agent'].shape[:2])
 
     data = {}
     for k in image_keys:

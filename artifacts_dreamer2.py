@@ -111,4 +111,7 @@ def parse_d2_episodes(data):
         terminal=data.get('terminal', nans),
         map_agent=data.get('map_agent', noimg),
         map=data.get('map', noimg),
+        map_rec=data.get('map_centered', noimg),
+        agent_pos=data.get('agent_pos', nans),
+        agent_dir=data.get('agent_dir', nans),
     )
