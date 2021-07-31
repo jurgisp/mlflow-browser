@@ -79,6 +79,7 @@ def parse_d2_wm_predict(data, take_episodes=1):
         loss_kl=flatten(data.get('loss_kl', nans)),
         loss_image=flatten(data.get('loss_image', nans)),
         loss_map=flatten(data.get('loss_map', nans)),
+        acc_map=flatten(data.get('acc_map', nans)),
         logprob_img=flatten(data.get('logprob_img', nans)),
         entropy_prior=flatten(data.get('entropy_prior', nans)),
         entropy_post=flatten(data.get('entropy_post', nans)),

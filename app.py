@@ -211,10 +211,11 @@ def load_frame(step_data=None,
         return {k: [] for k in image_keys}
 
     sd = step_data
+
+    # map_rec_global
     if 'map_rec' in sd and 'map_agent' in sd:
-        # transform map_rec -> map_rec_global, if it is agent-centric
         if len(sd['map_rec'].shape) == 2 and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
-            # map_rec is bigger than map_agent (categorica) - must be agent-centric
+            # map_rec is bigger than map_agent (categorical) - must be agent-centric
             map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
             agent_pos, agent_dir = artifacts_minigrid._get_agent_pos(map_agent)
             sd['map_rec_global'] = artifacts_minigrid._map_centric_to_global(sd['map_rec'], agent_pos, agent_dir, map_agent.shape[:2])
@@ -537,8 +538,9 @@ def create_app(doc):
     fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
     fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
     fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
-    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[3], legend_label='prior ent.', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[4], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='acc_map', source=steps_source, color=palette[3], legend_label='acc_map', nonselection_alpha=1)
+    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[4], legend_label='prior ent.', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[5], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
     fig.legend.click_policy = "hide"
 
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
