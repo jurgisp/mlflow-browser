@@ -58,15 +58,16 @@ def _get_agent_pos(map, remove_from_map=False):
 
 
 def _map_centric_to_global(map, agent_pos, agent_dir, size):
-    map = np.rot90(map, (agent_dir+1))
+    map = np.rot90(map, (agent_dir + 1))
     mid = (map.shape[0] - 1) // 2
     top_x, top_y = mid - agent_pos[0], mid - agent_pos[1]
     map = map[top_x:top_x + size[0], top_y:top_y + size[0]]
     return map
 
+
 def map_centric_to_global_rgb(map, agent_pos, agent_dir, size):
     angle = np.arctan2(agent_dir[0], agent_dir[1])
-    map = skt.rotate(map, angle/np.pi*180 + 180)
+    map = skt.rotate(map, angle / np.pi * 180 + 180)
 
     res = map.shape[0] / size[0] / 2
     min_x = int(map.shape[0] / 2 - res * agent_pos[0])

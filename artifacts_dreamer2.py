@@ -67,7 +67,10 @@ def parse_d2_wm_predict(data, take_episodes=1):
         terminal=flatten(data.get('terminal', nans)),
         image=flatten(data['image']),
         map_agent=flatten(data.get('map_agent', noimg)),
+        # map_centered=flatten(data.get('map_centered', noimg)),
         map=flatten(data.get('map', noimg)),
+        agent_pos=flatten(data.get('agent_pos', nans)),
+        agent_dir=flatten(data.get('agent_dir', nans)),
         #
         image_rec=flatten(data.get('image_rec_p', data.get('image_rec', noimg))),
         map_rec=flatten(data.get('map_rec_p', data.get('map_rec', noimg))),
