@@ -81,7 +81,8 @@ def calc_y_range_log(ys, min_val=1e-4, margin=1.05):
 
 def load_run_metrics(runs: pd.DataFrame, metrics=[DEFAULT_METRIC], smoothing_n=None):
     data = []
-    for i, run in runs.reset_index().iterrows():
+    i = 0
+    for _, run in runs.iterrows():
         run_id, run_name = run['id'], run['name']
         for metric in metrics:
             with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
@@ -114,6 +115,7 @@ def load_run_metrics(runs: pd.DataFrame, metrics=[DEFAULT_METRIC], smoothing_n=N
                     'steps_max': max(xs),
                     'time_max': max(ts),
                 })
+            i += 1
     return pd.DataFrame(data)
 
 
