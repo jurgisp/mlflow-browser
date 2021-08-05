@@ -1,0 +1,121 @@
+{% from macros import embed %}
+
+<!DOCTYPE html>
+<html lang="en">
+{% block head %}
+
+<head>
+  {% block inner_head %}
+  <meta charset="utf-8">
+  <title>{% block title %}{{ title | e if title else "Bokeh Plot" }}{% endblock %}</title>
+  <!-- Emoji favicon -->
+  <link rel="icon" href="data:image/svg+xml,
+    <svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>
+      <text y=%22.9em%22 font-size=%2290%22>
+        📈
+      </text>
+    </svg>">
+  <script type="text/javascript">
+    // Detecting disconnected sessions using a workaround from
+    //  https://stackoverflow.com/questions/43915626/how-to-override-methods-on-bokeh-how-to-check-if-all-the-elements-are-already-r
+    console.log('Enabling disconnect detection')
+    oldLog = console.info;
+    console.info = function (sender, message) {
+      oldLog.apply(console, arguments)
+      // This looks for the following message in Bokeh logs:
+      //   [bokeh] Websocket connection 0 disconnected, will not attempt to reconnect
+      if (message.includes("disconnected, will not attempt to reconnect")) {
+        console.log('Disconnected!')
+        if (confirm('Connection lost, reload?')) {
+          window.location.reload();
+        }
+      }
+    };
+  </script>
+  <style>
+    .loader {
+      position: relative;
+      border: 16px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 16px solid #3498db;
+      width: 70px;
+      height: 70px;
+      left: 50%;
+      top: 50%;
+      -webkit-animation: spin 2s linear infinite;
+      animation: spin 2s linear infinite;
+    }
+
+    #loader_overlay {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      width: 100%;
+      height: 100%;
+      background: black;
+      opacity: .5;
+      z-index: 999;
+      display: none;
+      /* Disabled */
+      /*  To use loader add something like this in the main.py:
+                  data_source.js_on_change('data', CustomJS(code="document.getElementById('loader_overlay').style.display = 'none';"))
+            */
+    }
+
+    /* Safari */
+    @-webkit-keyframes spin {
+      0% {
+        -webkit-transform: rotate(0deg);
+      }
+
+      100% {
+        -webkit-transform: rotate(360deg);
+      }
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+  {% block preamble %}{% endblock %}
+  {% block resources %}
+  {% block css_resources %}
+  {{ bokeh_css | indent(8) if bokeh_css }}
+  {% endblock %}
+  {% block js_resources %}
+  {{ bokeh_js | indent(8) if bokeh_js }}
+  {% endblock %}
+  {% endblock %}
+  {% block postamble %}{% endblock %}
+  {% endblock %}
+</head>
+{% endblock %}
+{% block body %}
+
+<body>
+  <div id="loader_overlay">
+    <div class="loader"></div>
+  </div>
+  {% block inner_body %}
+  {% block contents %}
+  {% for doc in docs %}
+  {{ embed(doc) if doc.elementid }}
+  {% for root in doc.roots %}
+  {% block root scoped %}
+  {{ embed(root) | indent(10) }}
+  {% endblock %}
+  {% endfor %}
+  {% endfor %}
+  {% endblock %}
+  {{ plot_script | indent(8) }}
+  {% endblock %}
+</body>
+{% endblock %}
+
+</html>
