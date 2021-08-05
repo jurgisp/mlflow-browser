@@ -36,15 +36,20 @@ class DataAbstract:
         new_in_state = self.get_in_state()
         if new_in_state != self._in_state:
             self._in_state = new_in_state
+            self.source.selected.indices = []  # type: ignore
+            self.set_selected()  # Update selected state immediately, but without causing additional callbacks
             self.data = self.load_data(*self._in_state)
             self.source.data = self.data  # type: ignore
-            self.source.selected.indices = []  # type: ignore
 
     def get_in_state(self) -> Tuple:
         return tuple()
 
     def on_select(self) -> None:
+        self.set_selected()
         self._callback(f'{self._name}.select')
+
+    def set_selected(self) -> None:
+        pass
 
     def load_data(self, state: Tuple) -> pd.DataFrame:
         raise NotImplementedError
@@ -53,7 +58,7 @@ class DataAbstract:
 class DataExperiments(DataAbstract):
     def __init__(self, callback, name='experiments'):
         super().__init__(callback, name)
-        self.selected_experiment_ids = []
+        self.set_selected()
 
     def load_data(self):
         with Timer(f'mlflow.list_experiments()', verbose=True):
@@ -65,18 +70,16 @@ class DataExperiments(DataAbstract):
         df = df.sort_values('id', ascending=False)
         return df
 
-    def on_select(self):
+    def set_selected(self):
         cols = selected_columns(self.source)
         self.selected_experiment_ids = cols.get('id', [])
-        super().on_select()
 
 
 class DataRuns(DataAbstract):
     def __init__(self, callback, data_experiments: DataExperiments, name='runs'):
         super().__init__(callback, name)
         self._data_experiments = data_experiments
-        self.selected_run_ids = []
-        self.selected_run_df = pd.DataFrame()
+        self.set_selected()
 
     def get_in_state(self):
         return (self._data_experiments.selected_experiment_ids,)
@@ -91,19 +94,17 @@ class DataRuns(DataAbstract):
         df['start_time_local'] = dt_tolocal(df['start_time'])
         return df
 
-    def on_select(self):
+    def set_selected(self):
         cols = selected_columns(self.source)
         self.selected_run_ids = cols.get('id', [])
         self.selected_run_df = pd.DataFrame(cols)
-        super().on_select()
-
 
 
 class DataMetricKeys(DataAbstract):
     def __init__(self, callback, data_runs: DataRuns, name='metric_keys'):
         super().__init__(callback, name)
         self._data_runs = data_runs
-        self.selected_keys = []
+        self.set_selected()
 
     def get_in_state(self):
         return (self._data_runs.selected_run_ids,)
@@ -127,9 +128,8 @@ class DataMetricKeys(DataAbstract):
             'metric': metrics,
             'value1': np.array(values1),
             'value2': np.array(values2)
-    }
+        }
 
-    def on_select(self):
+    def set_selected(self):
         cols = selected_columns(self.source)
         self.selected_keys = cols.get('metric', [])
-        super().on_select()
