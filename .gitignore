@@ -1,7 +1,7 @@
-.vscode/
-.DS_Store
-__pycache__/
+_*
+.*
+!__init__.py
+!.gitignore
+
 data/
 mlruns/
-_*.*
-.env

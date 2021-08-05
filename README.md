@@ -6,4 +6,4 @@ Custom UI for mlflow tracking server
     export MLFLOW_TRACKING_URI=
     export MLFLOW_EXPERIMENT_NAME=
 
-    bokeh serve --show app.py
+    bokeh serve --show app
