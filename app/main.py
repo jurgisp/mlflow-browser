@@ -44,33 +44,21 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     return fig
 
 
-def load_runs(experiment_ids=None):
-    with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
-        df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
-    if len(df) == 0:
-        return df
-    df['id'] = df['run_id']
-    df['name'] = df['tags.mlflow.runName']
-    df['start_time_local'] = df['start_time'].dt.tz_convert(TZ_LOCAL).dt.tz_localize(None)
-    return df
-
-
 def delete_run(run_id):
     with Timer(f'mlflow.delete_run({run_id})', verbose=True):
         mlflow_client.delete_run(run_id)
 
 
-def load_keys(runs_data=None):
-    # runs_data = {'metrics.1': [run1val, run2val], 'metrics.2': [...], ...}
-    if runs_data is None:
+def load_keys(runs_df: pd.DataFrame = None):
+    if runs_df is None or len(runs_df) == 0:
         return {'metric': [], 'value': []}
     metrics = []
     values1 = []
     values2 = []
-    for col in sorted(runs_data.keys()):
+    for col in sorted(runs_df.columns):
         if col.startswith('metrics.'):
             metrics_key = col.split('.')[1]
-            vals = runs_data[col]
+            vals = runs_df[col].to_list()
             if not all([v is None or np.isnan(v) for v in vals]):
                 metrics.append(metrics_key)
                 values1.append(vals[0])
@@ -112,10 +100,9 @@ def calc_y_range_log(ys, min_val=1e-4, margin=1.05):
     return range_min, range_max
 
 
-def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
+def load_run_metrics(runs: pd.DataFrame, metrics=[DEFAULT_METRIC], smoothing_n=None):
     data = []
-    i = 0
-    for run in runs:
+    for i, run in runs.reset_index().iterrows():
         run_id, run_name = run['id'], run['name']
         for metric in metrics:
             with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
@@ -148,15 +135,14 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
                     'steps_max': max(xs),
                     'time_max': max(ts),
                 })
-                i += 1
     return pd.DataFrame(data)
 
 
-def load_artifacts(run=None, path=None, dirs=False):
-    if run is None:
+def load_artifacts(run_id=None, path=None, dirs=False):
+    if run_id is None:
         return {}
     with Timer(f'mlflow.list_artifacts({path})', verbose=True):
-        artifacts = mlflow_client.list_artifacts(run['id'], path)
+        artifacts = mlflow_client.list_artifacts(run_id, path)
     artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
     if not dirs:
         artifacts = list(reversed(artifacts))  # Order newest-first
@@ -247,15 +233,19 @@ def create_app(doc):
     def on_change(source):
         print(f'callback: {source}')
         data_experiments.update()
+        data_runs.update()
 
-        update_runs()
-        runs_source.selected.indices = []
+        if source == 'runs.select':
+            run_selected(None, None, None)
+
+        # update_runs()
+        # runs_source.selected.indices = []
 
     data_experiments = DataExperiments(on_change)
+    data_runs = DataRuns(on_change, data_experiments)
 
-    runs_source = ColumnDataSource(data=load_runs())
     keys_source = ColumnDataSource(data=load_keys())
-    metrics_source = ColumnDataSource(data=load_run_metrics())
+    metrics_source = ColumnDataSource(data=load_run_metrics(pd.DataFrame()))
 
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
@@ -266,7 +256,6 @@ def create_app(doc):
 
     def refresh():
         print('Refreshing...')
-        update_runs()
         # metrics
         update_keys()
         update_metrics()
@@ -282,7 +271,6 @@ def create_app(doc):
         update_artifacts()
         update_steps()
         update_frame()
-    runs_source.selected.on_change('indices', run_selected)
 
     def key_selected(attr, old, new):
         update_metrics()
@@ -319,21 +307,16 @@ def create_app(doc):
 
     # Data update
 
-    def update_runs():
-        runs_source.data = load_runs(data_experiments.selected_experiments)
-
     def delete_run_callback():
-        runs = selected_rows(runs_source)
-        if len(runs) == 1:
-            delete_run(runs[0]['id'])
-            update_runs()
+        if len(data_runs.selected_run_ids) == 1:
+            delete_run(data_runs.selected_run_ids[0])
+            on_change('delete_run')  # TODO: need to force refresh
 
     def update_keys():
-        runs_data = selected_columns(runs_source)
-        keys_source.data = load_keys(runs_data)
+        keys_source.data = load_keys(data_runs.selected_run_df)
 
     def update_metrics():
-        runs = selected_rows(runs_source)
+        runs = data_runs.selected_run_df
         keys = selected_rows(keys_source)
         if len(keys) > 0:
             keys = [row['metric'] for row in keys]
@@ -341,7 +324,7 @@ def create_app(doc):
             keys = [DEFAULT_METRIC]
         smoothing = SMOOTHING_OPTS[radio_smoothing.active]
 
-        df = load_run_metrics(runs, keys, smoothing)
+        df = load_run_metrics(data_runs.selected_run_df, keys, smoothing)
 
         if len(df) > 0:
             # step-linear
@@ -360,22 +343,22 @@ def create_app(doc):
         metrics_source.data = df
 
     def update_artifacts_dir():
-        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
-        artifacts_dir_source.data = load_artifacts(run, dirs=True)
+        run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
+        artifacts_dir_source.data = load_artifacts(run_id, dirs=True)
 
     def update_artifacts():
-        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
+        run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
         dir = selected_row_single(artifacts_dir_source)
-        if run and dir:
-            artifacts_source.data = load_artifacts(run, dir['path'])
+        if run_id and dir:
+            artifacts_source.data = load_artifacts(run_id, dir['path'])
         else:
             artifacts_source.data = {}
 
     def update_steps():
-        run = selected_row_single(runs_source) if tabs.active == 1 else None  # Don't reload if another tab
+        run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
         artifact = selected_row_single(artifacts_source)
-        if run and artifact:
-            data = load_artifact_steps(run['id'], artifact['path'])
+        if run_id and artifact:
+            data = load_artifact_steps(run_id, artifact['path'])
             steps_source.data = data
         else:
             steps_source.data = {}
@@ -404,7 +387,7 @@ def create_app(doc):
 
     w = 80
     runs_table = DataTable(
-        source=runs_source,
+        source=data_runs.source,
         columns=[
             TableColumn(field="name", title="run", width=150),
             TableColumn(field="run_id", title="id", width=30),

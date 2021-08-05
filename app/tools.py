@@ -16,6 +16,7 @@ def data_length(data):
     any_key = next(iter(data.keys()))
     return len(data[any_key])
 
+
 def selected_rows(src):
     ixs = src.selected.indices or []
     n = data_length(src.data)
@@ -41,6 +42,13 @@ def selected_columns(src):
     return cols
 
 
+def single_or_none(list):
+    if len(list or []) == 1:
+        return list[0]
+    else:
+        return None
+
+
 def download_artifact_npz(client, run_id, artifact_path):
     with tempfile.TemporaryDirectory() as tmpdir:
         path = client.download_artifacts(run_id, artifact_path, tmpdir)
@@ -53,7 +61,7 @@ def download_artifact_npz(client, run_id, artifact_path):
 def to_rgba(img, alpha=255):
     if img.min() < 0:  # (-0.5,0.5)
         img = img + 0.5
-    if img.max() < 1.01: # (0,1)
+    if img.max() < 1.01:  # (0,1)
         img = img * 255
     img = img.clip(0, 255).astype(np.uint8)
 
