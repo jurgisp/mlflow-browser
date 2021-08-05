@@ -12,8 +12,8 @@ from bokeh import layouts
 from bokeh.layouts import layout
 from bokeh.palettes import Category10_10 as palette
 
-import tools
-from tools import selected_rows, selected_row_single, selected_columns
+from .tools import *
+from .data import *
 
 import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
@@ -44,19 +44,8 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     return fig
 
 
-def load_experiments():
-    with tools.Timer(f'mlflow.list_experiments()', verbose=True):
-        experiments = mlflow_client.list_experiments()
-    df = pd.DataFrame([{
-        'id': int(e.experiment_id),
-        'name': e.name
-    } for e in experiments])
-    df = df.sort_values('id', ascending=False)
-    return df
-
-
 def load_runs(experiment_ids=None):
-    with tools.Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
+    with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
         df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
     if len(df) == 0:
         return df
@@ -67,7 +56,7 @@ def load_runs(experiment_ids=None):
 
 
 def delete_run(run_id):
-    with tools.Timer(f'mlflow.delete_run({run_id})', verbose=True):
+    with Timer(f'mlflow.delete_run({run_id})', verbose=True):
         mlflow_client.delete_run(run_id)
 
 
@@ -129,7 +118,7 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
     for run in runs:
         run_id, run_name = run['id'], run['name']
         for metric in metrics:
-            with tools.Timer(f'mlflow.get_metric_history({metric})', verbose=True):
+            with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
                 try:
                     hist = mlflow_client.get_metric_history(run_id, metric)
                 except Exception as e:
@@ -166,7 +155,7 @@ def load_run_metrics(runs=[], metrics=[DEFAULT_METRIC], smoothing_n=None):
 def load_artifacts(run=None, path=None, dirs=False):
     if run is None:
         return {}
-    with tools.Timer(f'mlflow.list_artifacts({path})', verbose=True):
+    with Timer(f'mlflow.list_artifacts({path})', verbose=True):
         artifacts = mlflow_client.list_artifacts(run['id'], path)
     artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
     if not dirs:
@@ -180,9 +169,9 @@ def load_artifacts(run=None, path=None, dirs=False):
 
 
 def load_artifact_steps(run_id, artifact_path):
-    with tools.Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
+    with Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
         if artifact_path.endswith('.npz'):
-            data = tools.download_artifact_npz(mlflow_client, run_id, artifact_path)
+            data = download_artifact_npz(mlflow_client, run_id, artifact_path)
         else:
             print(f'Artifact extension not supported: {artifact_path}')
             return {}
@@ -238,7 +227,7 @@ def load_frame(step_data=None,
             img = obs
         else:
             img = artifacts_minigrid.render_obs(obs)  # Try MiniGrid
-        img = tools.to_rgba(img)
+        img = to_rgba(img)
         data[k] = [img]
     return data
 
@@ -255,7 +244,15 @@ def create_app(doc):
 
     # === Data sources ===
 
-    experiments_source = ColumnDataSource(data=load_experiments())
+    def on_change(source):
+        print(f'callback: {source}')
+        data_experiments.update()
+
+        update_runs()
+        runs_source.selected.indices = []
+
+    data_experiments = DataExperiments(on_change)
+
     runs_source = ColumnDataSource(data=load_runs())
     keys_source = ColumnDataSource(data=load_keys())
     metrics_source = ColumnDataSource(data=load_run_metrics())
@@ -275,11 +272,6 @@ def create_app(doc):
         update_metrics()
         # artifacts
         update_artifacts()
-
-    def experiment_selected(attr, old, new):
-        update_runs()
-        runs_source.selected.indices = []
-    experiments_source.selected.on_change('indices', experiment_selected)
 
     def run_selected(attr, old, new):
         # metrics
@@ -328,8 +320,7 @@ def create_app(doc):
     # Data update
 
     def update_runs():
-        selected_experiments = selected_columns(experiments_source)
-        runs_source.data = load_runs(selected_experiments['id'])
+        runs_source.data = load_runs(data_experiments.selected_experiments)
 
     def delete_run_callback():
         runs = selected_rows(runs_source)
@@ -398,7 +389,7 @@ def create_app(doc):
     # Experiments table
 
     experiments_table = DataTable(
-        source=experiments_source,
+        source=data_experiments.source,
         columns=[
             # TableColumn(field="id", width=50),
             TableColumn(field="name", width=150),
@@ -498,7 +489,7 @@ def create_app(doc):
         columns=[
             TableColumn(field="name"),
             TableColumn(field="file_size_mb", title='size (MB)', formatter=NumberFormatter(format="0,0"))
-            ],
+        ],
         width=200,
         height=500,
         selectable=True
@@ -630,6 +621,10 @@ def create_app(doc):
             [tabs],
         ])
     )
+
+    # ----- Start -----
+
+    on_change('init')
 
 
 if __name__.startswith('bokeh_app_'):
