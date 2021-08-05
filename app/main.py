@@ -296,6 +296,13 @@ def create_app(doc):
         update_metrics()
     keys_source.selected.on_change('indices', key_selected)
 
+    def artifact_tab_selected(attr, old, new):
+        # artifacts
+        update_artifacts_dir()
+        update_artifacts()
+        update_steps()
+        update_frame()
+
     def artifact_dir_selected(attr, old, new):
         update_artifacts()
         update_steps()
@@ -611,6 +618,7 @@ def create_app(doc):
                     ],
                 ])),
                 ])
+    tabs.on_change('active', artifact_tab_selected)
 
     doc.add_root(
         layout([
