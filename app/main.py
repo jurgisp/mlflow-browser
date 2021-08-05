@@ -49,27 +49,6 @@ def delete_run(run_id):
         mlflow_client.delete_run(run_id)
 
 
-def load_keys(runs_df: pd.DataFrame = None):
-    if runs_df is None or len(runs_df) == 0:
-        return {'metric': [], 'value': []}
-    metrics = []
-    values1 = []
-    values2 = []
-    for col in sorted(runs_df.columns):
-        if col.startswith('metrics.'):
-            metrics_key = col.split('.')[1]
-            vals = runs_df[col].to_list()
-            if not all([v is None or np.isnan(v) for v in vals]):
-                metrics.append(metrics_key)
-                values1.append(vals[0])
-                values2.append(vals[1] if len(vals) >= 2 else np.nan)
-    return {
-        'metric': metrics,
-        'value1': np.array(values1),
-        'value2': np.array(values2)
-    }
-
-
 def apply_smoothing(xs, ts, ys, bin_size=10):
     # Drop last partial bin
     n = (len(xs) // bin_size) * bin_size
@@ -234,19 +213,15 @@ def create_app(doc):
         print(f'callback: {source}')
         data_experiments.update()
         data_runs.update()
-
-        if source == 'runs.select':
+        data_keys.update()
+        if source == 'runs.select' or source == 'metric_keys.select':
             run_selected(None, None, None)
-
-        # update_runs()
-        # runs_source.selected.indices = []
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments)
+    data_keys = DataMetricKeys(on_change, data_runs)
 
-    keys_source = ColumnDataSource(data=load_keys())
     metrics_source = ColumnDataSource(data=load_run_metrics(pd.DataFrame()))
-
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
@@ -257,24 +232,18 @@ def create_app(doc):
     def refresh():
         print('Refreshing...')
         # metrics
-        update_keys()
         update_metrics()
         # artifacts
         update_artifacts()
 
     def run_selected(attr, old, new):
         # metrics
-        update_keys()
         update_metrics()
         # artifacts
         update_artifacts_dir()
         update_artifacts()
         update_steps()
         update_frame()
-
-    def key_selected(attr, old, new):
-        update_metrics()
-    keys_source.selected.on_change('indices', key_selected)
 
     def artifact_tab_selected(attr, old, new):
         # artifacts
@@ -312,19 +281,14 @@ def create_app(doc):
             delete_run(data_runs.selected_run_ids[0])
             on_change('delete_run')  # TODO: need to force refresh
 
-    def update_keys():
-        keys_source.data = load_keys(data_runs.selected_run_df)
-
     def update_metrics():
         runs = data_runs.selected_run_df
-        keys = selected_rows(keys_source)
-        if len(keys) > 0:
-            keys = [row['metric'] for row in keys]
-        else:
+        keys = data_keys.selected_keys
+        if len(keys) == 0:
             keys = [DEFAULT_METRIC]
-        smoothing = SMOOTHING_OPTS[radio_smoothing.active]
+        smoothing = SMOOTHING_OPTS[radio_smoothing.active]  # type: ignore
 
-        df = load_run_metrics(data_runs.selected_run_df, keys, smoothing)
+        df = load_run_metrics(runs, keys, smoothing)
 
         if len(df) > 0:
             # step-linear
@@ -413,7 +377,7 @@ def create_app(doc):
     # Keys table
 
     keys_table = DataTable(
-        source=keys_source,
+        source=data_keys.source,
         columns=[TableColumn(field="metric", title="metric", width=150),
                  TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]"), width=50),
                  TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]"), width=50),
