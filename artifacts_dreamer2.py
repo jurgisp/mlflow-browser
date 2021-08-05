@@ -39,7 +39,7 @@ def flatten(x):
 #     )
 
 
-def parse_d2_wm_predict(data, take_episodes=1):
+def parse_d2_wm_predict(data, take_episodes=10):
     for k in data.keys():
         data[k] = data[k][:take_episodes]
         if data[k].dtype == np.float16:
@@ -54,7 +54,7 @@ def parse_d2_wm_predict(data, take_episodes=1):
         # Backwards-compatibility (7,7,1) => (7,7)
         data['image'] = data['image'][..., 0]
 
-    nans = np.full_like(data['reward'], np.nan)
+    nans = np.full((data['reward'].shape), np.nan)
     noimg = np.zeros_like(data['image'])
 
     return dict(
@@ -64,6 +64,7 @@ def parse_d2_wm_predict(data, take_episodes=1):
         #
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
+        reset=flatten(data.get('reset', nans)),
         terminal=flatten(data.get('terminal', nans)),
         image=flatten(data['image']),
         map_agent=flatten(data.get('map_agent', noimg)),
@@ -104,7 +105,7 @@ def parse_d2_episodes(data):
         # Backwards-compatibility (7,7,1) => (7,7)
         data['image'] = data['image'][..., 0]
 
-    nans = np.full_like(data['reward'], np.nan)
+    nans = np.full((data['reward'].shape), np.nan)
     noimg = np.zeros_like(data['image'])
 
     return dict(
@@ -113,6 +114,7 @@ def parse_d2_episodes(data):
         reward=data['reward'],
         image=data['image'],
         terminal=data.get('terminal', nans),
+        reset=data.get('reset', nans),
         map_agent=data.get('map_agent', noimg),
         map=data.get('map', noimg),
         map_rec=data.get('map_centered', noimg),

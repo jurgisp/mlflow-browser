@@ -471,7 +471,7 @@ def create_app(doc):
                 legend_field='legend',
                 line_width=2,
                 line_alpha=0.8)
-            p.legend.location = 'top_left'
+            # p.legend.location = 'top_left'
             metrics_figures.append(p)
 
     # === Artifacts ===
@@ -506,7 +506,8 @@ def create_app(doc):
             TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
-            # TableColumn(field="terminal", title='terminal', formatter=fmt),
+            # TableColumn(field="reset", formatter=fmt),
+            # TableColumn(field="terminal", formatter=fmt),
             # TableColumn(field="reward_rec", formatter=fmt),
             # TableColumn(field="action_pred", formatter=fmt),
             # TableColumn(field="reward_pred", formatter=fmt),
