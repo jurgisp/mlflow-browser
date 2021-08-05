@@ -37,7 +37,7 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
         **kwargs,
     )
     if active_scroll:
-        fig.toolbar.active_scroll = fig.select_one(WheelZoomTool)
+        fig.toolbar.active_scroll = fig.select_one(WheelZoomTool)  # type: ignore
     if hide_axes:
         fig.xaxis.visible = False
         fig.yaxis.visible = False
