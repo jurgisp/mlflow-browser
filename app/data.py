@@ -1,4 +1,5 @@
 from typing import Tuple
+from bokeh.models.callbacks import CustomJS
 import pandas as pd
 from bokeh.models import ColumnDataSource
 import mlflow

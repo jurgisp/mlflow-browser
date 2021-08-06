@@ -137,6 +137,8 @@ def create_app(doc):
 
     # === Data sources ===
 
+    update_counter = 0
+
     def on_change(source):
         print(f'selected: {source}')
         data_experiments.update()
@@ -146,6 +148,11 @@ def create_app(doc):
         data_metrics.update()
         if source == 'runs':
             run_selected(None, None, None)
+
+        # Loader
+        nonlocal update_counter
+        update_counter += 1
+        data_progress.data = pd.DataFrame({'counter': update_counter}, index=[0])
 
     def on_update(source):
         print(f'updated: {source}')
@@ -424,6 +431,19 @@ def create_app(doc):
     frame_figure_5.image_rgba(image='map_rec_global', source=frame_source, **kwargs)
     frame_figure_6.image_rgba(image='map_rec', source=frame_source, **kwargs)
 
+    # === Loader ===
+
+    data_progress = ColumnDataSource(data=pd.DataFrame())
+    data_experiments.source.selected.js_on_change('indices', CustomJS(code="""
+    console.log('Data loading started');
+    document.getElementById('loader_overlay').style.display = 'initial';
+    """))  # Show loader when selected
+    data_progress.js_on_change('data', CustomJS(code="""
+    console.log('Data loading finished');
+    document.getElementById('loader_overlay').style.display = 'none';
+    """))  # Hide loader when data updated
+    tab_progress = DataTable(source=data_progress, columns=[TableColumn(field='counter')], width=50, height=50)  # TODO: Use something invisible
+
     # === Layout ===
 
     btn_refresh = Button(label='Refresh', width=100)
@@ -483,6 +503,7 @@ def create_app(doc):
                 layouts.column([btn_refresh, btn_delete, btn_play]),
             ],
             [tabs],
+            [tab_progress],
         ])
     )
 
