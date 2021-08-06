@@ -19,10 +19,6 @@ import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
 
 
-MAX_RUNS = 100
-DEFAULT_METRIC = '_loss'
-TZ_LOCAL = 'Europe/Vilnius'
-
 PLAY_INTERVAL = 500
 PLAY_DELAY = 5000
 
@@ -47,76 +43,6 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
 def delete_run(run_id):
     with Timer(f'mlflow.delete_run({run_id})', verbose=True):
         mlflow_client.delete_run(run_id)
-
-
-def apply_smoothing(xs, ts, ys, bin_size=10):
-    # Drop last partial bin
-    n = (len(xs) // bin_size) * bin_size
-    # For each bin: last(xs), mean(ys), last(ts)
-    xs = xs[:n].reshape(-1, bin_size)[:, -1]
-    ts = ts[:n].reshape(-1, bin_size)[:, -1]
-    ys = ys[:n].reshape(-1, bin_size).mean(axis=1)
-    return xs, ts, ys
-
-
-def calc_y_range(ys, margin=0.05):
-    ys = ys[np.isfinite(ys)]
-    range_min, range_max = min(ys), max(ys)
-    dr = range_max - range_min
-    if dr == 0:
-        dr = 1.0
-    range_min -= dr * margin
-    range_max += dr * margin
-    return range_min, range_max
-
-
-def calc_y_range_log(ys, min_val=1e-4, margin=1.05):
-    ys = ys[np.isfinite(ys)]
-    range_min = max(min(ys), min_val)
-    range_max = max(max(ys), min_val * margin)
-    range_min /= margin
-    range_max *= margin
-    return range_min, range_max
-
-
-def load_run_metrics(runs: pd.DataFrame, metrics=[DEFAULT_METRIC], smoothing_n=None):
-    data = []
-    i = 0
-    for _, run in runs.iterrows():
-        run_id, run_name = run['id'], run['name']
-        for metric in metrics:
-            with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
-                try:
-                    hist = mlflow_client.get_metric_history(run_id, metric)
-                except Exception as e:
-                    hist = []
-                    print(f'ERROR fetching mlflow: {e}')
-            if len(hist) > 0:
-                hist.sort(key=lambda m: m.timestamp)
-                xs = np.array([m.step for m in hist])
-                ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
-                ys = np.array([m.value for m in hist])
-                if smoothing_n:
-                    xs, ts, ys = apply_smoothing(xs, ts, ys, smoothing_n)
-                range_min, range_max = calc_y_range(ys)
-                range_min_log, range_max_log = calc_y_range_log(ys)
-                data.append({
-                    'run': run_name,
-                    'metric': metric,
-                    'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric} [{run_name}]',
-                    'color': palette[i % len(palette)],
-                    'steps': xs,
-                    'time': ts,
-                    'values': ys,
-                    'range_min': range_min,
-                    'range_max': range_max,
-                    'range_min_log': range_min_log,
-                    'range_max_log': range_max_log,
-                    'steps_max': max(xs),
-                    'time_max': max(ts),
-                })
-            i += 1
-    return pd.DataFrame(data)
 
 
 def load_artifacts(run_id=None, path=None, dirs=False):
@@ -212,18 +138,38 @@ def create_app(doc):
     # === Data sources ===
 
     def on_change(source):
-        print(f'callback: {source}')
+        print(f'selected: {source}')
         data_experiments.update()
         data_runs.update()
         data_keys.update()
-        if source == 'runs.select' or source == 'metric_keys.select':
+        # smoothing = SMOOTHING_OPTS[radio_smoothing.active]  # type: ignore
+        data_metrics.update()
+        if source == 'runs':
             run_selected(None, None, None)
+
+    def on_update(source):
+        print(f'updated: {source}')
+        if source == 'metrics':
+            df = data_metrics.data
+            if len(df) > 0:
+                # step-linear
+                metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
+                metrics_figures[0].x_range.update(start=0, end=max(df['steps_max']))
+                # step-log
+                metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
+                metrics_figures[1].x_range.update(start=0, end=max(df['steps_max']))
+                # time-linear
+                metrics_figures[2].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
+                metrics_figures[2].x_range.update(start=0, end=max(df['time_max']))
+                # time-log
+                metrics_figures[3].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
+                metrics_figures[3].x_range.update(start=0, end=max(df['time_max']))
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments)
     data_keys = DataMetricKeys(on_change, data_runs)
+    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys)
 
-    metrics_source = ColumnDataSource(data=load_run_metrics(pd.DataFrame()))
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
@@ -232,15 +178,9 @@ def create_app(doc):
     # Callbacks
 
     def refresh():
-        print('Refreshing...')
-        # metrics
-        update_metrics()
-        # artifacts
-        update_artifacts()
+        on_change('refresh')  # TODO: force update
 
     def run_selected(attr, old, new):
-        # metrics
-        update_metrics()
         # artifacts
         update_artifacts_dir()
         update_artifacts()
@@ -282,31 +222,6 @@ def create_app(doc):
         if len(data_runs.selected_run_ids) == 1:
             delete_run(data_runs.selected_run_ids[0])
             on_change('delete_run')  # TODO: need to force refresh
-
-    def update_metrics():
-        runs = data_runs.selected_run_df
-        keys = data_keys.selected_keys
-        if len(keys) == 0:
-            keys = [DEFAULT_METRIC]
-        smoothing = SMOOTHING_OPTS[radio_smoothing.active]  # type: ignore
-
-        df = load_run_metrics(runs, keys, smoothing)
-
-        if len(df) > 0:
-            # step-linear
-            metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
-            metrics_figures[0].x_range.update(start=0, end=max(df['steps_max']))
-            # step-log
-            metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
-            metrics_figures[1].x_range.update(start=0, end=max(df['steps_max']))
-            # time-linear
-            metrics_figures[2].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
-            metrics_figures[2].x_range.update(start=0, end=max(df['time_max']))
-            # time-log
-            metrics_figures[3].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
-            metrics_figures[3].x_range.update(start=0, end=max(df['time_max']))
-
-        metrics_source.data = df
 
     def update_artifacts_dir():
         run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
@@ -413,7 +328,7 @@ def create_app(doc):
             p.multi_line(
                 xs=x_axis,
                 ys='values',
-                source=metrics_source,
+                source=data_metrics.source,
                 color='color',
                 legend_field='legend',
                 line_width=2,
