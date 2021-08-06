@@ -35,36 +35,39 @@ class DataAbstract:
         self.data = pd.DataFrame()
         self.source = ColumnDataSource(data=pd.DataFrame())
         self.source.selected.on_change('indices', lambda attr, old, new: self.on_select())  # type: ignore
+        self.set_selected()
 
     def update(self):
         new_in_state = self.get_in_state()
         if new_in_state != self._in_state:
             self._in_state = new_in_state
-            self.source.selected.indices = []  # type: ignore
-            self.set_selected()  # Update selected state immediately, but without causing additional callbacks
             self.data = self.load_data(*self._in_state)
             self.source.data = self.data  # type: ignore
+            self.reselect()
+            self.set_selected()  # Update selected state immediately, but without causing additional callbacks
             if self._callback_update:
                 self._callback_update(self._name)
-
-    def get_in_state(self) -> Tuple:
-        return tuple()
 
     def on_select(self) -> None:
         self.set_selected()
         self._callback(self._name)
 
-    def set_selected(self) -> None:
-        pass
+    def get_in_state(self) -> Tuple:
+        return tuple()  # Override
 
     def load_data(self, state: Tuple) -> pd.DataFrame:
-        raise NotImplementedError
+        raise NotImplementedError  # Override
+
+    def set_selected(self) -> None:
+        pass  # Override
+
+    def reselect(self):
+        self.source.selected.indices = []  # type: ignore  # Override (optional)
 
 
 class DataExperiments(DataAbstract):
     def __init__(self, callback, name='experiments'):
         super().__init__(callback, name)
-        self.set_selected()
 
     def load_data(self):
         with Timer(f'mlflow.list_experiments()', verbose=True):
@@ -83,9 +86,8 @@ class DataExperiments(DataAbstract):
 
 class DataRuns(DataAbstract):
     def __init__(self, callback, data_experiments: DataExperiments, name='runs'):
-        super().__init__(callback, name)
         self._data_experiments = data_experiments
-        self.set_selected()
+        super().__init__(callback, name)
 
     def get_in_state(self):
         return (self._data_experiments.selected_experiment_ids,)
@@ -108,9 +110,8 @@ class DataRuns(DataAbstract):
 
 class DataMetricKeys(DataAbstract):
     def __init__(self, callback, data_runs: DataRuns, name='metric_keys'):
-        super().__init__(callback, name)
         self._data_runs = data_runs
-        self.set_selected()
+        super().__init__(callback, name)
 
     def get_in_state(self):
         return (self._data_runs.selected_run_ids,)
@@ -118,7 +119,7 @@ class DataMetricKeys(DataAbstract):
     def load_data(self, run_ids):
         runs_df = self._data_runs.selected_run_df
         if runs_df is None or len(runs_df) == 0:
-            return {'metric': [], 'value': []}
+            return pd.DataFrame({'metric': [], 'value': []})
         metrics = []
         values1 = []
         values2 = []
@@ -130,23 +131,28 @@ class DataMetricKeys(DataAbstract):
                     metrics.append(metrics_key)
                     values1.append(vals[0])
                     values2.append(vals[1] if len(vals) >= 2 else np.nan)
-        return {
+        return pd.DataFrame({
             'metric': metrics,
             'value1': np.array(values1),
             'value2': np.array(values2)
-        }
+        })
 
     def set_selected(self):
         cols = selected_columns(self.source)
         self.selected_keys = cols.get('metric', [])
 
+    def reselect(self):
+        # Select the same metric keys, even if they are at different index
+        df = self.data
+        df = df[df['metric'].isin(self.selected_keys)]
+        self.source.selected.indices = df.index.to_list()  # type: ignore
+
 
 class DataMetrics(DataAbstract):
     def __init__(self, callback, callback_update, data_runs: DataRuns, data_keys: DataMetricKeys, name='metrics'):
-        super().__init__(callback, name, callback_update)
         self._data_runs = data_runs
         self._data_keys = data_keys
-        self.set_selected()
+        super().__init__(callback, name, callback_update)
 
     def get_in_state(self):
         return (
