@@ -139,20 +139,20 @@ def create_app(doc):
 
     update_counter = 0
 
-    def on_change(source):
+    def on_change(source, refresh=False):
         print(f'selected: {source}')
-        data_experiments.update()
-        data_runs.update()
-        data_keys.update()
+        data_experiments.update(refresh)
+        data_runs.update(refresh)
+        data_keys.update(refresh)
         # smoothing = SMOOTHING_OPTS[radio_smoothing.active]  # type: ignore
-        data_metrics.update()
+        data_metrics.update(refresh)
         if source == 'runs':
             run_selected(None, None, None)
 
         # Loader
         nonlocal update_counter
         update_counter += 1
-        data_progress.data = pd.DataFrame({'counter': update_counter}, index=[0])
+        data_progress.data = pd.DataFrame({'counter': update_counter}, index=[0])  # type: ignore
 
     def on_update(source):
         print(f'updated: {source}')
@@ -185,7 +185,7 @@ def create_app(doc):
     # Callbacks
 
     def refresh():
-        on_change('refresh')  # TODO: force update
+        on_change('refresh', refresh=True)
 
     def run_selected(attr, old, new):
         # artifacts
@@ -217,18 +217,18 @@ def create_app(doc):
     steps_source.selected.on_change('indices', step_selected)
 
     def play_frame():
-        ix = steps_source.selected.indices
+        ix = steps_source.selected.indices  # type: ignore
         if len(ix) == 1:
-            steps_source.selected.indices = [ix[0] + 1]
+            steps_source.selected.indices = [ix[0] + 1]  # type: ignore
         else:
-            steps_source.selected.indices = [0]
+            steps_source.selected.indices = [0]  # type: ignore
 
     # Data update
 
     def delete_run_callback():
         if len(data_runs.selected_run_ids) == 1:
             delete_run(data_runs.selected_run_ids[0])
-            on_change('delete_run')  # TODO: need to force refresh
+            on_change('delete_run', refresh=True)
 
     def update_artifacts_dir():
         run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab

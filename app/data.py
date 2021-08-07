@@ -38,9 +38,9 @@ class DataAbstract:
         self.source.selected.on_change('indices', lambda attr, old, new: self.on_select())  # type: ignore
         self.set_selected()
 
-    def update(self):
+    def update(self, refresh=False):
         new_in_state = self.get_in_state()
-        if new_in_state != self._in_state:
+        if new_in_state != self._in_state or refresh:
             self._in_state = new_in_state
             self.data = self.load_data(*self._in_state)
             self.source.data = self.data  # type: ignore
@@ -107,6 +107,11 @@ class DataRuns(DataAbstract):
         cols = selected_columns(self.source)
         self.selected_run_ids = cols.get('id', [])
         self.selected_run_df = pd.DataFrame(cols)
+
+    def reselect(self):
+        df = self.data
+        df = df[df['id'].isin(self.selected_run_ids)]
+        self.source.selected.indices = df.index.to_list()  # type: ignore
 
 
 class DataMetricKeys(DataAbstract):
