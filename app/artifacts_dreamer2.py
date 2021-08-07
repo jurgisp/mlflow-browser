@@ -40,15 +40,20 @@ def flatten(x):
 
 
 def parse_d2_wm_predict(data, take_episodes=10):
+
+    # If there are discrepancies between sizes, take smallest
+    B = min(v.shape[0] for k, v in data.items())
+    B = min(B, take_episodes)
+    T = min(v.shape[1] for k, v in data.items())
+    N = B * T
+
     for k in data.keys():
-        data[k] = data[k][:take_episodes]
+        data[k] = data[k][0:B, 0:T]
         if data[k].dtype == np.float16:
             data[k] = data[k].astype(np.float32)  # Operations are slow with float16
 
-    b, t = data['reward'].shape
-    n = b * t
-    i_batch, i_step = np.indices((b, t))
-    i_batch_step = i_batch * 1000 + i_step
+    i_batch, i_step = np.indices((B, T))
+    i_batch_step = i_batch * 1000 + i_step  # type: ignore
 
     if data['image'].shape[-1] == 1:
         # Backwards-compatibility (7,7,1) => (7,7)
@@ -89,7 +94,7 @@ def parse_d2_wm_predict(data, take_episodes=10):
         entropy_post=flatten(data.get('entropy_post', nans)),
         #
         value=flatten(data.get('behav_value', nans)),
-        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else np.array([np.nan] * n),
+        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else np.array([np.nan] * N),
     )
 
 

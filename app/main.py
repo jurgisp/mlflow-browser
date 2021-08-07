@@ -278,8 +278,6 @@ def create_app(doc):
         source=data_runs.source,
         columns=[
             TableColumn(field="name", title="run", width=150),
-            TableColumn(field="run_id", title="id", width=30),
-            TableColumn(field="experiment_id", title="exp", width=30),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
@@ -291,6 +289,8 @@ def create_app(doc):
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
+            TableColumn(field="run_id", title="id", width=30),
+            TableColumn(field="experiment_id", title="exp", width=30),
         ],
         width=1000,
         height=250,
