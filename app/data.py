@@ -214,9 +214,10 @@ class DataMetrics(DataAbstract):
         ys = ys[:n].reshape(-1, bin_size).mean(axis=1)
         return xs, ts, ys
 
-    def _calc_y_range(self, ys, margin=0.05):
+    def _calc_y_range(self, ys, margin=0.05, include_zero=True):
         ys = ys[np.isfinite(ys)]
-        range_min, range_max = min(ys), max(ys)
+        range_min = min(0, min(ys)) if include_zero else min(ys)
+        range_max = max(ys)
         dr = range_max - range_min
         if dr == 0:
             dr = 1.0
