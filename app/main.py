@@ -267,7 +267,7 @@ def create_app(doc):
             # TableColumn(field="id", width=50),
             TableColumn(field="name", width=150),
         ],
-        width=200,
+        width=350,
         height=250,
         # fit_columns=False,
         selectable=True,
@@ -290,9 +290,9 @@ def create_app(doc):
             #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
-            TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
-            TableColumn(field="run_id", title="id", width=30),
-            TableColumn(field="experiment_id", title="exp", width=30),
+            TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
+            TableColumn(field="experiment_id", title="exp", width=40),
+            TableColumn(field="run_id", title="id", width=40),
         ],
         width=1000,
         height=250,
@@ -472,7 +472,7 @@ def create_app(doc):
                                  active=0)
     radio_smoothing.on_change('active', lambda attr, old, new: update_metrics())  # type: ignore
 
-    txt_metric_filter = TextInput(title="Filter:")
+    txt_metric_filter = TextInput(title="Filter:", width=350)
     txt_metric_filter.on_change('value_input', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
 
     tabs = Tabs(active=0, tabs=[
@@ -508,8 +508,8 @@ def create_app(doc):
     doc.add_root(
         layout([
             [
-                runs_table,
                 experiments_table,
+                runs_table,
                 layouts.column([btn_refresh, btn_delete, btn_play]),
             ],
             [tabs],
