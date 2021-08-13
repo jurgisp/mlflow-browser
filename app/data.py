@@ -161,8 +161,11 @@ class DataMetricKeys(DataAbstract):
     def reselect(self):
         # Select the same metric keys, even if they are at different index
         df = self.data
-        df = df[df['metric'].isin(self.selected_keys)]
-        self.source.selected.indices = df.index.to_list()  # type: ignore
+        if len(df) == 0:
+            self.source.selected.indices = []  # type: ignore
+        else:
+            df = df[df['metric'].isin(self.selected_keys)]
+            self.source.selected.indices = df.index.to_list()  # type: ignore
 
 
 class DataMetrics(DataAbstract):
