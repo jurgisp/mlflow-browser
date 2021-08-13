@@ -138,23 +138,21 @@ class DataMetricKeys(DataAbstract):
         runs_df = self._data_runs.selected_run_df
         if runs_df is None or len(runs_df) == 0:
             return pd.DataFrame({'metric': [], 'value': []})
-        metrics = []
-        values1 = []
-        values2 = []
+        data = []
         for col in sorted(runs_df.columns):
             if col.startswith('metrics.'):
                 metrics_key = col.split('.')[1]
                 if not filter or filter in metrics_key:
                     vals = runs_df[col].to_list()
                     if not all([v is None or np.isnan(v) for v in vals]):
-                        metrics.append(metrics_key)
-                        values1.append(vals[0])
-                        values2.append(vals[1] if len(vals) >= 2 else np.nan)
-        return pd.DataFrame({
-            'metric': metrics,
-            'value1': np.array(values1),
-            'value2': np.array(values2)
-        })
+                        data.append({
+                            'metric': metrics_key,
+                            'metric_prefix': '/'.join(metrics_key.split('/')[:-1]),  # train/loss => train
+                            'metric_suffix': metrics_key.split('/')[-1],  # train/loss => loss
+                            'value1': vals[0],
+                            'value2': vals[1] if len(vals) >= 2 else np.nan,
+                        })
+        return pd.DataFrame(data)
 
     def set_selected(self):
         cols = selected_columns(self.source)

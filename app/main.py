@@ -304,11 +304,12 @@ def create_app(doc):
 
     keys_table = DataTable(
         source=data_keys.source,
-        columns=[TableColumn(field="metric", title="metric", width=150),
-                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]"), width=50),
-                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]"), width=50),
+        columns=[TableColumn(field="metric_prefix", title="prefix", width=50),
+                 TableColumn(field="metric_suffix", title="metric", width=120),
+                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0.[000]"), width=60),
+                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0.[000]"), width=60),
                  ],
-        width=300,
+        width=350,
         height=600,
         fit_columns=False,
         selectable=True,
