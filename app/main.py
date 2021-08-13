@@ -172,9 +172,11 @@ def create_app(doc):
                 metrics_figures[3].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
                 metrics_figures[3].x_range.update(start=0, end=max(df['time_max']))
 
+    datac_keys_filter = DataControl(on_change, 'keys_filter')
+
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments)
-    data_keys = DataMetricKeys(on_change, data_runs)
+    data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys)
 
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
@@ -467,12 +469,18 @@ def create_app(doc):
     radio_smoothing = RadioGroup(name='Smoothing',
                                  labels=['No smoothing'] + [str(i) for i in SMOOTHING_OPTS[1:]],
                                  active=0)
-    radio_smoothing.on_change('active', lambda attr, old, new: update_metrics())
+    radio_smoothing.on_change('active', lambda attr, old, new: update_metrics())  # type: ignore
+
+    txt_metric_filter = TextInput(title="Filter:")
+    txt_metric_filter.on_change('value_input', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
 
     tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [
-                        keys_table,
+                        layout([
+                            [txt_metric_filter],
+                            [keys_table],
+                        ]),
                         Tabs(active=0, tabs=[
                             Panel(title="Linear/Steps", child=metrics_figures[0]),
                             Panel(title="Log/Steps", child=metrics_figures[1]),

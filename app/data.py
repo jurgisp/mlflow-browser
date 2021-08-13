@@ -27,6 +27,17 @@ def dt_tolocal(col) -> pd.Series:
     )
 
 
+class DataControl:
+    def __init__(self, callback, name, value=None):
+        self._callback = callback
+        self._name = name
+        self.value = value
+
+    def set(self, value):
+        self.value = value
+        self._callback(self._name)
+
+
 class DataAbstract:
     def __init__(self, callback, name, callback_update=None):
         self._callback = callback
@@ -53,17 +64,17 @@ class DataAbstract:
         self.set_selected()
         self._callback(self._name)
 
-    def get_in_state(self) -> Tuple:
-        return tuple()  # Override
+    def get_in_state(self) -> Tuple:  # Override
+        return tuple()
 
-    def load_data(self, state: Tuple) -> pd.DataFrame:
-        raise NotImplementedError  # Override
+    def load_data(self, state: Tuple) -> pd.DataFrame:  # Override
+        raise NotImplementedError
 
-    def set_selected(self) -> None:
-        pass  # Override
+    def set_selected(self) -> None:  # Override
+        pass
 
-    def reselect(self):
-        self.source.selected.indices = []  # type: ignore  # Override (optional)
+    def reselect(self):  # Override (optional)
+        self.source.selected.indices = []  # type: ignore
 
 
 class DataExperiments(DataAbstract):
@@ -115,14 +126,15 @@ class DataRuns(DataAbstract):
 
 
 class DataMetricKeys(DataAbstract):
-    def __init__(self, callback, data_runs: DataRuns, name='metric_keys'):
+    def __init__(self, callback, data_runs: DataRuns, datac_filter: DataControl, name='metric_keys'):
         self._data_runs = data_runs
+        self._datac_filter = datac_filter
         super().__init__(callback, name)
 
     def get_in_state(self):
-        return (self._data_runs.selected_run_ids,)
+        return (self._data_runs.selected_run_ids, self._datac_filter.value)
 
-    def load_data(self, run_ids):
+    def load_data(self, run_ids, filter):
         runs_df = self._data_runs.selected_run_df
         if runs_df is None or len(runs_df) == 0:
             return pd.DataFrame({'metric': [], 'value': []})
@@ -132,11 +144,12 @@ class DataMetricKeys(DataAbstract):
         for col in sorted(runs_df.columns):
             if col.startswith('metrics.'):
                 metrics_key = col.split('.')[1]
-                vals = runs_df[col].to_list()
-                if not all([v is None or np.isnan(v) for v in vals]):
-                    metrics.append(metrics_key)
-                    values1.append(vals[0])
-                    values2.append(vals[1] if len(vals) >= 2 else np.nan)
+                if not filter or filter in metrics_key:
+                    vals = runs_df[col].to_list()
+                    if not all([v is None or np.isnan(v) for v in vals]):
+                        metrics.append(metrics_key)
+                        values1.append(vals[0])
+                        values2.append(vals[1] if len(vals) >= 2 else np.nan)
         return pd.DataFrame({
             'metric': metrics,
             'value1': np.array(values1),
