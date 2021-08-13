@@ -37,6 +37,9 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     if hide_axes:
         fig.xaxis.visible = False
         fig.yaxis.visible = False
+    if kwargs.get('y_axis_type') == 'log':
+        # For some reason log axis is flipped by default
+        fig.y_range.flipped = True  # type: ignore
     return fig
 
 
@@ -156,21 +159,6 @@ def create_app(doc):
 
     def on_update(source):
         print(f'updated: {source}')
-        if source == 'metrics':
-            df = data_metrics.data
-            if len(df) > 0:
-                # step-linear
-                metrics_figures[0].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
-                metrics_figures[0].x_range.update(start=0, end=max(df['steps_max']))
-                # step-log
-                metrics_figures[1].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
-                metrics_figures[1].x_range.update(start=0, end=max(df['steps_max']))
-                # time-linear
-                metrics_figures[2].y_range.update(start=min(df['range_min']), end=max(df['range_max']))
-                metrics_figures[2].x_range.update(start=0, end=max(df['time_max']))
-                # time-log
-                metrics_figures[3].y_range.update(start=min(df['range_min_log']), end=max(df['range_max_log']))
-                metrics_figures[3].x_range.update(start=0, end=max(df['time_max']))
 
     datac_keys_filter = DataControl(on_change, 'keys_filter')
 
@@ -332,7 +320,6 @@ def create_app(doc):
                     ("value", "$y"),
                 ],
                 y_axis_type=y_axis_type,
-                y_range=(1e-6, 100),
             )
             p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
             p.multi_line(
