@@ -169,20 +169,21 @@ class DataMetricKeys(DataAbstract):
 
 
 class DataMetrics(DataAbstract):
-    def __init__(self, callback, callback_update, data_runs: DataRuns, data_keys: DataMetricKeys, name='metrics'):
+    def __init__(self, callback, callback_update, data_runs: DataRuns, data_keys: DataMetricKeys, datac_smoothing: DataControl, name='metrics'):
         self._data_runs = data_runs
         self._data_keys = data_keys
+        self._datac_smoothing = datac_smoothing
         super().__init__(callback, name, callback_update)
 
     def get_in_state(self):
         return (
             self._data_runs.selected_run_ids,
-            self._data_keys.selected_keys or [DEFAULT_METRIC]
+            self._data_keys.selected_keys or [DEFAULT_METRIC],
+            self._datac_smoothing.value
         )
 
-    def load_data(self, run_ids, metrics):
+    def load_data(self, run_ids, metrics, smoothing_n):
         runs = self._data_runs.selected_run_df
-        smoothing_n = None  # TODO
         data = []
         i = 0
         for _, run in runs.iterrows():

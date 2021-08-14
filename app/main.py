@@ -160,12 +160,13 @@ def create_app(doc):
     def on_update(source):
         print(f'updated: {source}')
 
-    datac_keys_filter = DataControl(on_change, 'keys_filter')
+    datac_keys_filter = DataControl(on_change, 'keys_filter', '')
+    datac_smoothing = DataControl(on_change, 'smoothing', 0)
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
-    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys)
+    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
 
     artifacts_dir_source = ColumnDataSource(data=load_artifacts())
     artifacts_source = ColumnDataSource(data=load_artifacts())
@@ -457,7 +458,7 @@ def create_app(doc):
     radio_smoothing = RadioGroup(name='Smoothing',
                                  labels=['No smoothing'] + [str(i) for i in SMOOTHING_OPTS[1:]],
                                  active=0)
-    radio_smoothing.on_change('active', lambda attr, old, new: update_metrics())  # type: ignore
+    radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
 
     txt_metric_filter = TextInput(title="Filter:", width=350)
     txt_metric_filter.on_change('value_input', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
