@@ -10,7 +10,8 @@ from .tools import *
 
 
 MAX_RUNS = 100
-DEFAULT_METRIC = '_loss'
+# DEFAULT_METRICS = ['_loss']
+DEFAULT_METRICS = []
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
 
@@ -178,7 +179,7 @@ class DataMetrics(DataAbstract):
     def get_in_state(self):
         return (
             self._data_runs.selected_run_ids,
-            self._data_keys.selected_keys or [DEFAULT_METRIC],
+            self._data_keys.selected_keys or DEFAULT_METRICS,
             self._datac_smoothing.value
         )
 
