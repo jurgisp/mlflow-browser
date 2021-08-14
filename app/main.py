@@ -98,7 +98,7 @@ def load_frame(step_data=None,
     sd = step_data
 
     # map_rec_global
-    if 'map_rec' in sd and 'map_agent' in sd:
+    if 'map_rec' in sd and 'map_agent' in sd and not np.all(sd['map_rec'] == 0):
         if len(sd['map_rec'].shape) == 2 and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
             # map_rec is bigger than map_agent (categorical) - must be agent-centric
             map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
@@ -113,7 +113,7 @@ def load_frame(step_data=None,
         obs = sd.get(k)
 
         # TODO: move this logic to artifacts
-        if obs is None:
+        if obs is None or obs.shape == (1, 1, 1):
             obs = np.zeros((1, 1, 3))
 
         if len(obs.shape) == 3 and obs.shape[1] == obs.shape[2]:  # Looks transposed (C,W,W)
@@ -366,8 +366,8 @@ def create_app(doc):
             TableColumn(field="step", formatter=NumberFormatter(format="0,0")),
             TableColumn(field="action", title='action (last)', formatter=fmt),
             TableColumn(field="reward", title='reward (last)', formatter=fmt),
-            # TableColumn(field="reset", formatter=fmt),
-            # TableColumn(field="terminal", formatter=fmt),
+            TableColumn(field="reset", formatter=fmt),
+            TableColumn(field="terminal", formatter=fmt),
             # TableColumn(field="reward_rec", formatter=fmt),
             # TableColumn(field="action_pred", formatter=fmt),
             # TableColumn(field="reward_pred", formatter=fmt),
