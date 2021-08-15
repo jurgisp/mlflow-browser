@@ -50,11 +50,7 @@ class DataAbstract:
         self.source.selected.on_change('indices', lambda attr, old, new: self.on_select())  # type: ignore
         if loader_on_select:
             # Show loader when selected
-            self.source.selected.js_on_change('indices',  # type: ignore
-                                              CustomJS(code="""
-            console.log('Data loading started');
-            document.getElementById('loader_overlay').style.display = 'initial';
-            """))
+            self.source.selected.js_on_change('indices', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
         self.set_selected()
 
     def update(self, refresh=False):
@@ -63,7 +59,7 @@ class DataAbstract:
             self._in_state = new_in_state
             self.data = self.load_data(*self._in_state)
             self.source.data = self.data  # type: ignore
-            self.reselect()
+            self.reselect(refresh)
             self.set_selected()  # Update selected state immediately, but without causing additional callbacks
             if self._callback_update:
                 self._callback_update(self._name)
@@ -81,8 +77,9 @@ class DataAbstract:
     def set_selected(self) -> None:  # Override
         pass
 
-    def reselect(self):  # Override (optional)
-        self.source.selected.indices = []  # type: ignore
+    def reselect(self, is_refresh):  # Override (optional)
+        if not is_refresh:
+            self.source.selected.indices = []  # type: ignore
 
 
 class DataExperiments(DataAbstract):
@@ -128,7 +125,7 @@ class DataRuns(DataAbstract):
         self.selected_run_ids = cols.get('id', [])
         self.selected_run_df = pd.DataFrame(cols)
 
-    def reselect(self):
+    def reselect(self, is_refresh):
         df = self.data
         df = df[df['id'].isin(self.selected_run_ids)]
         self.source.selected.indices = df.index.to_list()  # type: ignore
@@ -167,7 +164,7 @@ class DataMetricKeys(DataAbstract):
         cols = selected_columns(self.source)
         self.selected_keys = cols.get('metric', [])
 
-    def reselect(self):
+    def reselect(self, is_refresh):
         # Select the same metric keys, even if they are at different index
         df = self.data
         if len(df) == 0:

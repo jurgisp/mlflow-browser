@@ -429,16 +429,14 @@ def create_app(doc):
     # === Loader ===
 
     text_progress = PreText(text='')
-    text_progress.js_on_change('text',  # type: ignore
-                               CustomJS(code="""
-    console.log('Data loading finished');
-    document.getElementById('loader_overlay').style.display = 'none';
-    """))  # Hide loader when data updated
+    # Hide loader when update finished
+    text_progress.js_on_change('text', CustomJS(code="document.getElementById('loader_overlay').style.display = 'none'"))  # type: ignore
 
     # === Layout ===
 
     btn_refresh = Button(label='Refresh', width=100)
     btn_refresh.on_click(lambda _: refresh())
+    btn_refresh.js_on_click(CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))
 
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
