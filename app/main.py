@@ -506,7 +506,12 @@ def create_app(doc):
 
     # ----- Start -----
 
-    on_change('init')
+    def startup():
+        on_change('init')
+
+    doc.add_timeout_callback(startup, 500)
+
+    
 
 
 if __name__.startswith('bokeh_app_'):
