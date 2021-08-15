@@ -10,8 +10,8 @@ from .tools import *
 
 
 MAX_RUNS = 100
-# DEFAULT_METRICS = ['_loss']
-DEFAULT_METRICS = []
+DEFAULT_METRICS = ['_loss']
+# DEFAULT_METRICS = []
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
 
@@ -40,7 +40,7 @@ class DataControl:
 
 
 class DataAbstract:
-    def __init__(self, callback, name, callback_update=None):
+    def __init__(self, callback, name, callback_update=None, loader_on_select=True):
         self._callback = callback
         self._callback_update = callback_update
         self._name = name
@@ -48,6 +48,13 @@ class DataAbstract:
         self.data = pd.DataFrame()
         self.source = ColumnDataSource(data=pd.DataFrame())
         self.source.selected.on_change('indices', lambda attr, old, new: self.on_select())  # type: ignore
+        if loader_on_select:
+            # Show loader when selected
+            self.source.selected.js_on_change('indices',  # type: ignore
+                                              CustomJS(code="""
+            console.log('Data loading started');
+            document.getElementById('loader_overlay').style.display = 'initial';
+            """))
         self.set_selected()
 
     def update(self, refresh=False):
@@ -113,6 +120,7 @@ class DataRuns(DataAbstract):
         df['id'] = df['run_id']
         df['name'] = df['tags.mlflow.runName']
         df['start_time_local'] = dt_tolocal(df['start_time'])
+        df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
         return df
 
     def set_selected(self):

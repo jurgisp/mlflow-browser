@@ -140,22 +140,20 @@ def create_app(doc):
 
     # === Data sources ===
 
-    update_counter = 0
+    progress_log = []
 
     def on_change(source, refresh=False):
         print(f'selected: {source}')
         data_experiments.update(refresh)
         data_runs.update(refresh)
         data_keys.update(refresh)
-        # smoothing = SMOOTHING_OPTS[radio_smoothing.active]  # type: ignore
         data_metrics.update(refresh)
         if source == 'runs':
             run_selected(None, None, None)
 
         # Loader
-        nonlocal update_counter
-        update_counter += 1
-        data_progress.data = pd.DataFrame({'counter': update_counter}, index=[0])  # type: ignore
+        progress_log.append(f'selected: {source}')
+        text_progress.text = '\n'.join(progress_log)
 
     def on_update(source):
         print(f'updated: {source}')
@@ -272,14 +270,19 @@ def create_app(doc):
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.eval_full/logprob_img", title="eval/img", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.eval_full/logprob_map", title="eval/map", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
+            # TableColumn(field="metrics.agent/steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.agent/episode_reward", title="reward", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
+            TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
+            # TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
+            # TableColumn(field="metrics.eval_full/logprob_img", title="eval/img", formatter=NumberFormatter(format="0.00"), width=w),
+            # TableColumn(field="metrics.eval_full/logprob_map", title="eval/map", formatter=NumberFormatter(format="0.00"), width=w),
+            # TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
             #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
-            TableColumn(field="metrics.fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
+            TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
+            TableColumn(field="metrics.train/fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
             TableColumn(field="experiment_id", title="exp", width=40),
             TableColumn(field="run_id", title="id", width=40),
         ],
@@ -425,16 +428,12 @@ def create_app(doc):
 
     # === Loader ===
 
-    data_progress = ColumnDataSource(data=pd.DataFrame())
-    data_experiments.source.selected.js_on_change('indices', CustomJS(code="""
-    console.log('Data loading started');
-    document.getElementById('loader_overlay').style.display = 'initial';
-    """))  # Show loader when selected
-    data_progress.js_on_change('data', CustomJS(code="""
+    text_progress = PreText(text='')
+    text_progress.js_on_change('text',  # type: ignore
+                               CustomJS(code="""
     console.log('Data loading finished');
     document.getElementById('loader_overlay').style.display = 'none';
     """))  # Hide loader when data updated
-    tab_progress = DataTable(source=data_progress, columns=[TableColumn(field='counter')], width=50, height=50)  # TODO: Use something invisible
 
     # === Layout ===
 
@@ -501,7 +500,7 @@ def create_app(doc):
                 layouts.column([btn_refresh, btn_delete, btn_play]),
             ],
             [tabs],
-            [tab_progress],
+            [text_progress],
         ])
     )
 
