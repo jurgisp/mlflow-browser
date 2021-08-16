@@ -429,7 +429,6 @@ def create_app(doc):
     # === Loader ===
 
     text_progress = PreText(text='')
-    # Hide loader when update finished
     text_progress.js_on_change('text', CustomJS(code="document.getElementById('loader_overlay').style.display = 'none'"))  # type: ignore
 
     # === Layout ===
@@ -440,6 +439,7 @@ def create_app(doc):
 
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
+    btn_delete.js_on_click(CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))
 
     btn_play = Toggle(label='Play', width=100)
     btn_play.on_click(lambda on: doc.add_timeout_callback(start_play, PLAY_DELAY) if on else stop_play())
