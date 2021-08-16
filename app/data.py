@@ -242,6 +242,8 @@ class DataMetrics(DataAbstract):
 
     def _calc_y_range(self, ys, margin=0.05, include_zero=True):
         ys = ys[np.isfinite(ys)]
+        if len(ys) == 0:
+            return -margin, margin
         range_min = min(0, min(ys)) if include_zero else min(ys)
         range_max = max(ys)
         dr = range_max - range_min
@@ -253,6 +255,8 @@ class DataMetrics(DataAbstract):
 
     def _calc_y_range_log(self, ys, min_val=1e-4, margin=1.05):
         ys = ys[np.isfinite(ys)]
+        if len(ys) == 0:
+            return min_val / margin, min_val * margin
         range_min = max(min(ys), min_val)
         range_max = max(max(ys), min_val * margin)
         range_min /= margin
