@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 from bokeh.models.callbacks import CustomJS
 import pandas as pd
 from bokeh.models import ColumnDataSource
@@ -127,8 +127,11 @@ class DataRuns(DataAbstract):
 
     def reselect(self, is_refresh):
         df = self.data
-        df = df[df['id'].isin(self.selected_run_ids)]
-        self.source.selected.indices = df.index.to_list()  # type: ignore
+        if len(df) == 0:
+            self.source.selected.indices = []  # type: ignore
+        else:
+            df = df[df['id'].isin(self.selected_run_ids)]
+            self.source.selected.indices = df.index.to_list()  # type: ignore
 
 
 class DataMetricKeys(DataAbstract):
@@ -262,3 +265,47 @@ class DataMetrics(DataAbstract):
         range_min /= margin
         range_max *= margin
         return range_min, range_max
+
+
+class DataArtifacts(DataAbstract):
+    def __init__(self, callback, data_runs: DataRuns, data_parent, is_dir: bool, name='artifacts'):
+        self._data_runs = data_runs
+        self._data_parent = data_parent
+        self._is_dir = is_dir
+        super().__init__(callback, name)
+
+    def get_in_state(self):
+        parent_dirs = self._data_parent.selected_paths if self._data_parent else None
+        return (self._data_runs.selected_run_ids, parent_dirs)
+
+    def load_data(self, run_ids, parent_dirs):
+        if len(run_ids) != 1:
+            return pd.DataFrame()
+        run_id = run_ids[0]
+
+        if parent_dirs is not None:
+            if len(parent_dirs) != 1:
+                return pd.DataFrame()
+            parent_dir = parent_dirs[0]
+        else:
+            parent_dir = None
+
+        df = self._load_artifacts(run_id, parent_dir, self._is_dir)
+        return df
+
+    def _load_artifacts(self, run_id, path, dirs):
+        with Timer(f'mlflow.list_artifacts({path})', verbose=True):
+            artifacts = mlflow_client.list_artifacts(run_id, path)
+        artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
+        if not dirs:
+            artifacts = list(reversed(artifacts))  # Order newest-first
+        return pd.DataFrame({
+            'path': [f.path for f in artifacts],
+            'name': [f.path.split('/')[-1] for f in artifacts],
+            'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
+            'is_dir': [f.is_dir for f in artifacts],
+        })
+
+    def set_selected(self):
+        cols = selected_columns(self.source)
+        self.selected_paths = cols.get('path', [])

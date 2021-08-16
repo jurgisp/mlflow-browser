@@ -148,8 +148,11 @@ def create_app(doc):
         data_runs.update(refresh)
         data_keys.update(refresh)
         data_metrics.update(refresh)
-        if source == 'runs':
-            run_selected(None, None, None)
+        data_artifacts_dir.update(refresh)
+        data_artifacts.update(refresh)
+
+        if source == 'artifacts':
+            artifact_selected(None, None, None)
 
         # Loader
         progress_log.append(f'selected: {source}')
@@ -165,9 +168,9 @@ def create_app(doc):
     data_runs = DataRuns(on_change, data_experiments)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
+    data_artifacts_dir = DataArtifacts(on_change, data_runs, None, True, 'artifacts_dir')
+    data_artifacts = DataArtifacts(on_change, data_runs, data_artifacts_dir, False, 'artifacts')
 
-    artifacts_dir_source = ColumnDataSource(data=load_artifacts())
-    artifacts_source = ColumnDataSource(data=load_artifacts())
     steps_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
 
@@ -176,30 +179,9 @@ def create_app(doc):
     def refresh():
         on_change('refresh', refresh=True)
 
-    def run_selected(attr, old, new):
-        # artifacts
-        update_artifacts_dir()
-        update_artifacts()
-        update_steps()
-        update_frame()
-
-    def artifact_tab_selected(attr, old, new):
-        # artifacts
-        update_artifacts_dir()
-        update_artifacts()
-        update_steps()
-        update_frame()
-
-    def artifact_dir_selected(attr, old, new):
-        update_artifacts()
-        update_steps()
-        update_frame()
-    artifacts_dir_source.selected.on_change('indices', artifact_dir_selected)
-
     def artifact_selected(attr, old, new):
         update_steps()
         update_frame()
-    artifacts_source.selected.on_change('indices', artifact_selected)
 
     def step_selected(attr, old, new):
         update_frame()
@@ -219,23 +201,11 @@ def create_app(doc):
             delete_run(data_runs.selected_run_ids[0])
             on_change('delete_run', refresh=True)
 
-    def update_artifacts_dir():
-        run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
-        artifacts_dir_source.data = load_artifacts(run_id, dirs=True)
-
-    def update_artifacts():
-        run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
-        dir = selected_row_single(artifacts_dir_source)
-        if run_id and dir:
-            artifacts_source.data = load_artifacts(run_id, dir['path'])
-        else:
-            artifacts_source.data = {}
-
     def update_steps():
         run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
-        artifact = selected_row_single(artifacts_source)
-        if run_id and artifact:
-            data = load_artifact_steps(run_id, artifact['path'])
+        artifact_path = single_or_none(data_artifacts.selected_paths)
+        if run_id and artifact_path:
+            data = load_artifact_steps(run_id, artifact_path)
             steps_source.data = data
         else:
             steps_source.data = {}
@@ -342,7 +312,7 @@ def create_app(doc):
     # Artifacts list
 
     artifacts_dir_table = DataTable(
-        source=artifacts_dir_source,
+        source=data_artifacts_dir.source,
         columns=[TableColumn(field="path", title="directory")],
         width=200,
         height=150,
@@ -350,7 +320,7 @@ def create_app(doc):
     )
 
     artifacts_table = DataTable(
-        source=artifacts_source,
+        source=data_artifacts.source,
         columns=[
             TableColumn(field="name"),
             TableColumn(field="file_size_mb", title='size (MB)', formatter=NumberFormatter(format="0,0"))
@@ -488,7 +458,6 @@ def create_app(doc):
                     ],
                 ])),
                 ])
-    tabs.on_change('active', artifact_tab_selected)
 
     doc.add_root(
         layout([
