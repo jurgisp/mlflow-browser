@@ -268,17 +268,21 @@ class DataMetrics(DataAbstract):
 
 
 class DataArtifacts(DataAbstract):
-    def __init__(self, callback, data_runs: DataRuns, data_parent, is_dir: bool, name='artifacts'):
+    def __init__(self, callback, data_runs: DataRuns, datac_tabs: DataControl, data_parent, is_dir: bool, name='artifacts'):
         self._data_runs = data_runs
+        self._datac_tabs = datac_tabs
         self._data_parent = data_parent
         self._is_dir = is_dir
         super().__init__(callback, name)
 
     def get_in_state(self):
         parent_dirs = self._data_parent.selected_paths if self._data_parent else None
-        return (self._data_runs.selected_run_ids, parent_dirs)
+        return (self._data_runs.selected_run_ids, parent_dirs, self._datac_tabs.value)
 
-    def load_data(self, run_ids, parent_dirs):
+    def load_data(self, run_ids, parent_dirs, tab):
+        if tab != 'artifacts':
+            return pd.DataFrame()
+
         if len(run_ids) != 1:
             return pd.DataFrame()
         run_id = run_ids[0]

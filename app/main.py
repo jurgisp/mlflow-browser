@@ -163,13 +163,14 @@ def create_app(doc):
 
     datac_keys_filter = DataControl(on_change, 'keys_filter', '')
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
+    datac_tabs = DataControl(on_change, 'tabs', 'metrics')
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
-    data_artifacts_dir = DataArtifacts(on_change, data_runs, None, True, 'artifacts_dir')
-    data_artifacts = DataArtifacts(on_change, data_runs, data_artifacts_dir, False, 'artifacts')
+    data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
+    data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, 'artifacts')
 
     steps_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
@@ -458,6 +459,8 @@ def create_app(doc):
                     ],
                 ])),
                 ])
+    tabs.on_change('active', lambda attr, old, new: datac_tabs.set('artifacts' if new == 1 else 'metrics'))  # type: ignore
+    tabs.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     doc.add_root(
         layout([
