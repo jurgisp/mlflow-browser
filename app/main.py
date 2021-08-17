@@ -7,7 +7,7 @@ from mlflow.tracking import MlflowClient
 
 import bokeh.plotting
 from bokeh.plotting import curdoc
-from bokeh.models import *
+from bokeh.models import *  # type: ignore
 from bokeh import layouts
 from bokeh.layouts import layout
 from bokeh.palettes import Category10_10 as palette
@@ -72,7 +72,7 @@ def load_artifact_steps(run_id, artifact_path):
             print(f'Artifact extension not supported: {artifact_path}')
             return {}
 
-    print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))
+    print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))  # type: ignore
 
     data_parsed = {}
     # if artifact_path.startswith('d2_train_batch/'):
@@ -146,7 +146,7 @@ def create_app(doc):
         print(f'selected: {source}')
         data_experiments.update(refresh)
         data_runs.update(refresh)
-        data_keys.update(refresh)
+        data_keys.update(refresh, quick=(source == 'keys_filter'))
         data_metrics.update(refresh)
         data_artifacts_dir.update(refresh)
         data_artifacts.update(refresh)
@@ -186,7 +186,7 @@ def create_app(doc):
 
     def step_selected(attr, old, new):
         update_frame()
-    steps_source.selected.on_change('indices', step_selected)
+    steps_source.selected.on_change('indices', step_selected)  # type: ignore
 
     def play_frame():
         ix = steps_source.selected.indices  # type: ignore
@@ -207,13 +207,13 @@ def create_app(doc):
         artifact_path = single_or_none(data_artifacts.selected_paths)
         if run_id and artifact_path:
             data = load_artifact_steps(run_id, artifact_path)
-            steps_source.data = data
+            steps_source.data = data  # type: ignore
         else:
-            steps_source.data = {}
+            steps_source.data = {}  # type: ignore
 
     def update_frame():
         step = selected_row_single(steps_source)
-        frame_source.data = load_frame(step)
+        frame_source.data = load_frame(step)  # type: ignore
 
     # === Layout ===
 
@@ -449,7 +449,7 @@ def create_app(doc):
                 ])),
                 Panel(title="Artifacts", child=layout([
                     [
-                        layouts.column([artifacts_dir_table, artifacts_table]),
+                        layouts.column([artifacts_dir_table, artifacts_table]),  # type: ignore
                         artifact_steps_table,
                         layout([
                             [frame_figure_1, frame_figure_2, frame_figure_3],
@@ -467,7 +467,7 @@ def create_app(doc):
             [
                 experiments_table,
                 runs_table,
-                layouts.column([btn_refresh, btn_delete, btn_play]),
+                layouts.column([btn_refresh, btn_delete, btn_play]),  # type: ignore
             ],
             [tabs],
             [text_progress],
@@ -480,8 +480,6 @@ def create_app(doc):
         on_change('init')
 
     doc.add_timeout_callback(startup, 500)
-
-    
 
 
 if __name__.startswith('bokeh_app_'):

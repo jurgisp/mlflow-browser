@@ -53,16 +53,17 @@ class DataAbstract:
             self.source.selected.js_on_change('indices', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
         self.set_selected()
 
-    def update(self, refresh=False):
+    def update(self, refresh=False, quick=False):
         new_in_state = self.get_in_state()
         if new_in_state != self._in_state or refresh:
             self._in_state = new_in_state
             self.data = self.load_data(*self._in_state)
             self.source.data = self.data  # type: ignore
-            self.reselect(refresh)
-            self.set_selected()  # Update selected state immediately, but without causing additional callbacks
-            if self._callback_update:
-                self._callback_update(self._name)
+            if not quick:
+                self.reselect(refresh)
+                self.set_selected()  # Update selected state immediately, but without causing additional callbacks
+                if self._callback_update:
+                    self._callback_update(self._name)
 
     def on_select(self) -> None:
         self.set_selected()
@@ -117,7 +118,8 @@ class DataRuns(DataAbstract):
         df['id'] = df['run_id']
         df['name'] = df['tags.mlflow.runName']
         df['start_time_local'] = dt_tolocal(df['start_time'])
-        df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
+        if 'metrics.agent/steps' in df:
+            df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
         return df
 
     def set_selected(self):
