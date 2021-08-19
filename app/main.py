@@ -291,12 +291,12 @@ def create_app(doc):
                 tooltips=[
                     ("run", "@run"),
                     ("metric", "@metric"),
-                    (x_axis, "$x{0,0}"),
+                    (x_axis, "$x{0,0}" if x_axis == 'steps' else "$x{0.0}"),
                     ("value", "$y{0,0.[000]}"),
                 ],
                 y_axis_type=y_axis_type,
             )
-            p.xaxis[0].formatter = NumeralTickFormatter(format='0,0')
+            p.xaxis[0].formatter = NumeralTickFormatter(format='0,0' if x_axis == 'steps' else '0.0')
             p.multi_line(
                 xs=x_axis,
                 ys='values',
@@ -315,25 +315,50 @@ def create_app(doc):
     artifacts_dir_table = DataTable(
         source=data_artifacts_dir.source,
         columns=[TableColumn(field="path", title="directory")],
-        width=200,
+        width=300,
         height=150,
-        selectable=True
+        selectable=True,
     )
 
     artifacts_table = DataTable(
         source=data_artifacts.source,
         columns=[
-            TableColumn(field="name"),
-            TableColumn(field="file_size_mb", title='size (MB)', formatter=NumberFormatter(format="0,0"))
+            TableColumn(field="name", width=200),
+            TableColumn(field="file_size_mb", title='size (MB)', formatter=NumberFormatter(format="0,0"), width=50)
         ],
-        width=200,
+        width=300,
         height=500,
-        selectable=True
+        fit_columns=False,
+        selectable=True,
     )
 
-    # Artifact details
+    # Episode steps
 
-    fmt = NumberFormatter(format="0.[000]")
+    steps_figure = fig = figure(
+        x_axis_label='step',
+        # y_axis_label='value',
+        plot_width=800,
+        plot_height=400,
+        # tooltips=[
+        #     ("run", "@run"),
+        #     ("metric", "@metric"),
+        #     ("step", "$x{0,0}"),
+        #     ("value", "$y"),
+        # ],
+    )
+    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
+    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
+    fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='acc_map', source=steps_source, color=palette[3], legend_label='acc_map', nonselection_alpha=1)
+    # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[4], legend_label='prior ent.', nonselection_alpha=1, visible=False)
+    # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[5], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='value', source=steps_source, color=palette[4], legend_label='value', nonselection_alpha=1)
+    fig.line(x='step', y='reward_value', source=steps_source, color=palette[6], legend_label='reward value', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='reward_cum', source=steps_source, color=palette[5], legend_label='cum. reward', nonselection_alpha=1, visible=False)
+    fig.legend.click_policy = "hide"
+
+
+    fmt = NumberFormatter(format="0.[00]")
     artifact_steps_table = DataTable(
         source=steps_source,
         columns=[
@@ -346,41 +371,23 @@ def create_app(doc):
             # TableColumn(field="action_pred", formatter=fmt),
             # TableColumn(field="reward_pred", formatter=fmt),
             # TableColumn(field="discount_pred", formatter=fmt),
-            # TableColumn(field="value", formatter=fmt),
+            TableColumn(field="value", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
             # TableColumn(field="entropy_prior", formatter=fmt),
             # TableColumn(field="entropy_post", formatter=fmt),
             TableColumn(field="loss_kl", formatter=fmt),
-            TableColumn(field="loss_image", formatter=fmt),
-            TableColumn(field="logprob_img", formatter=fmt),
-            TableColumn(field="loss_map", formatter=fmt),
-            TableColumn(field="acc_map", formatter=fmt),
+            # TableColumn(field="loss_image", formatter=fmt),
+            # TableColumn(field="logprob_img", formatter=fmt),
+            # TableColumn(field="loss_map", formatter=fmt),
+            # TableColumn(field="acc_map", formatter=fmt),
         ],
-        width=600,
-        height=600,
+        width=800,
+        height=250,
         selectable=True
     )
 
-    steps_figure = fig = figure(
-        x_axis_label='step',
-        # y_axis_label='value',
-        plot_width=800,
-        plot_height=300,
-        # tooltips=[
-        #     ("run", "@run"),
-        #     ("metric", "@metric"),
-        #     ("step", "$x{0,0}"),
-        #     ("value", "$y"),
-        # ],
-    )
-    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
-    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
-    fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1)
-    fig.line(x='step', y='acc_map', source=steps_source, color=palette[3], legend_label='acc_map', nonselection_alpha=1)
-    fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[4], legend_label='prior ent.', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='entropy_post', source=steps_source, color=palette[5], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
-    fig.legend.click_policy = "hide"
-
+    # Frame
+   
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
     frame_figure_2 = fig = figure(title='Prediction', **kwargs)
@@ -450,12 +457,19 @@ def create_app(doc):
                 Panel(title="Artifacts", child=layout([
                     [
                         layouts.column([artifacts_dir_table, artifacts_table]),  # type: ignore
-                        artifact_steps_table,
                         layout([
-                            [frame_figure_1, frame_figure_2, frame_figure_3],
-                            [frame_figure_4, frame_figure_5, frame_figure_6],
-                            [steps_figure],
-                        ])
+                            [
+                                layout([
+                                    [steps_figure],
+                                    [artifact_steps_table]
+                                ]),
+                                layout([
+                                    [frame_figure_1, frame_figure_2, frame_figure_3],
+                                    [frame_figure_4, frame_figure_5, frame_figure_6],
+                                    
+                                ])
+                            ]
+                        ]),
                     ],
                 ])),
                 ])

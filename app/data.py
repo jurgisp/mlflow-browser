@@ -210,9 +210,12 @@ class DataMetrics(DataAbstract):
                     hist.sort(key=lambda m: m.timestamp)
                     xs = np.array([m.step for m in hist])
                     ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
+                    ts = ts / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
                     if smoothing_n:
                         xs, ts, ys = self._apply_smoothing(xs, ts, ys, smoothing_n)
+                    if len(xs) == 0:
+                        continue
                     range_min, range_max = self._calc_y_range(ys)
                     range_min_log, range_max_log = self._calc_y_range_log(ys)
                     data.append({
