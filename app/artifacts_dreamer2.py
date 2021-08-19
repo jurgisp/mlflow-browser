@@ -1,8 +1,34 @@
 import numpy as np
+import scipy.signal
 
 
 def flatten(x):
     return x.reshape([-1] + list(x.shape[2:]))
+
+
+def discount(x: np.ndarray, gamma: float = 0.999):
+    return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
+
+
+def return_cumulative(reward: np.ndarray, reset: np.ndarray):
+    # PERF: would be better with numpy.ufunc.accumulate
+    accumulate = []
+    val = 0.0
+    for i in range(len(reward)):
+        val = val * (1 - reset[i]) + reward[i]
+        accumulate.append(val)
+    return np.array(accumulate)
+
+
+def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=0.999):
+    # PERF: would be better with numpy.ufunc.accumulate
+    accumulate = []
+    val = 0
+    accumulate.append(val)
+    for i in reversed(range(len(reward) - 1)):
+        val = gamma * val * (1 - reset[i + 1]) + reward[i + 1]
+        accumulate.append(val)
+    return np.array(accumulate)[::-1]
 
 
 # def parse_d2_train_batch(data):
@@ -93,8 +119,7 @@ def parse_d2_wm_predict(data, take_episodes=10):
         entropy_prior=flatten(data.get('entropy_prior', nans)),
         entropy_post=flatten(data.get('entropy_post', nans)),
         #
-        value=flatten(data.get('behav_value', nans)),
-        action_pred=flatten(data['behav_action']).argmax(axis=-1) if 'behav_action' in data else np.array([np.nan] * N),
+        value=flatten(data.get('policy_value', nans)),
     )
 
 
@@ -125,4 +150,9 @@ def parse_d2_episodes(data):
         map_rec=data.get('map_centered', noimg),
         agent_pos=data.get('agent_pos', nans),
         agent_dir=data.get('agent_dir', nans),
+        value=flatten(data.get('policy_value', nans)),
+        **{
+            'return': return_cumulative(data['reward'], data['reset']),
+            'return_discounted': return_discounted(data['reward'], data['reset']),
+        }
     )

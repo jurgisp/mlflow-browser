@@ -353,8 +353,8 @@ def create_app(doc):
     # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[4], legend_label='prior ent.', nonselection_alpha=1, visible=False)
     # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[5], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
     fig.line(x='step', y='value', source=steps_source, color=palette[4], legend_label='value', nonselection_alpha=1)
-    fig.line(x='step', y='reward_value', source=steps_source, color=palette[6], legend_label='reward value', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='reward_cum', source=steps_source, color=palette[5], legend_label='cum. reward', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='return_discounted', source=steps_source, color=palette[6], legend_label='return_discounted', nonselection_alpha=1, visible=False)
+    fig.line(x='step', y='return', source=steps_source, color=palette[5], legend_label='return', nonselection_alpha=1, visible=False)
     fig.legend.click_policy = "hide"
 
 
@@ -371,11 +371,12 @@ def create_app(doc):
             # TableColumn(field="action_pred", formatter=fmt),
             # TableColumn(field="reward_pred", formatter=fmt),
             # TableColumn(field="discount_pred", formatter=fmt),
-            TableColumn(field="value", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
             # TableColumn(field="entropy_prior", formatter=fmt),
             # TableColumn(field="entropy_post", formatter=fmt),
             TableColumn(field="loss_kl", formatter=fmt),
+            TableColumn(field="value", formatter=fmt),
+            TableColumn(field="return_discounted", formatter=fmt),
             # TableColumn(field="loss_image", formatter=fmt),
             # TableColumn(field="logprob_img", formatter=fmt),
             # TableColumn(field="loss_map", formatter=fmt),
