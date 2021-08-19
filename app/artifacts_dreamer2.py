@@ -109,7 +109,7 @@ def parse_d2_wm_predict(data, take_episodes=10):
         #
         image_pred=flatten(data.get('image_pred_p', data.get('image_pred', noimg))),
         reward_pred=flatten(data.get('reward_pred', nans)),
-        discount_pred=flatten(data.get('discount_pred', nans)),
+        terminal_pred=flatten(data.get('terminal_pred', nans)),
         #
         loss_kl=flatten(data.get('loss_kl', nans)),
         loss_image=flatten(data.get('loss_image', nans)),
