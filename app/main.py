@@ -19,8 +19,8 @@ import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
 
 
-PLAY_INTERVAL = 500
-PLAY_DELAY = 5000
+PLAY_INTERVAL = 100
+PLAY_DELAY = 0
 
 SMOOTHING_OPTS = [0, 5, 10, 20]
 
@@ -174,6 +174,7 @@ def create_app(doc):
 
     steps_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
+    frame_play_counter = 0
 
     # Callbacks
 
@@ -189,11 +190,9 @@ def create_app(doc):
     steps_source.selected.on_change('indices', step_selected)  # type: ignore
 
     def play_frame():
-        ix = steps_source.selected.indices  # type: ignore
-        if len(ix) == 1:
-            steps_source.selected.indices = [ix[0] + 1]  # type: ignore
-        else:
-            steps_source.selected.indices = [0]  # type: ignore
+        nonlocal frame_play_counter
+        frame_play_counter += 1
+        update_frame(frame_play_counter)
 
     # Data update
 
@@ -211,8 +210,9 @@ def create_app(doc):
         else:
             steps_source.data = {}  # type: ignore
 
-    def update_frame():
-        step = selected_row_single(steps_source)
+    def update_frame(offset=0):
+        steps = selected_rows(steps_source)
+        step = steps[offset % len(steps)] if len(steps) > 0 else None
         frame_source.data = load_frame(step)  # type: ignore
 
     # === Layout ===
