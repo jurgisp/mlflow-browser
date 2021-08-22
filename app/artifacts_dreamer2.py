@@ -1,12 +1,14 @@
 import numpy as np
 import scipy.signal
 
+DISCOUNT_GAMMA = 0.999
+
 
 def flatten(x):
     return x.reshape([-1] + list(x.shape[2:]))
 
 
-def discount(x: np.ndarray, gamma: float = 0.999):
+def discount(x: np.ndarray, gamma: float = DISCOUNT_GAMMA):
     return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
 
 
@@ -20,7 +22,7 @@ def return_cumulative(reward: np.ndarray, reset: np.ndarray):
     return np.array(accumulate)
 
 
-def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=0.999):
+def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=DISCOUNT_GAMMA):
     # PERF: would be better with numpy.ufunc.accumulate
     accumulate = []
     val = 0

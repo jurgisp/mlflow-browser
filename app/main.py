@@ -243,7 +243,8 @@ def create_app(doc):
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.agent/steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.agent/episode_reward", title="reward", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.agent/episode_reward", title="return (old)", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.agent/return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
             # TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
@@ -316,7 +317,7 @@ def create_app(doc):
         source=data_artifacts_dir.source,
         columns=[TableColumn(field="path", title="directory")],
         width=300,
-        height=150,
+        height=200,
         selectable=True,
     )
 
@@ -335,6 +336,7 @@ def create_app(doc):
     # Episode steps
 
     steps_figure = fig = figure(
+        tools='xbox_select,wheel_zoom,tap,reset',
         x_axis_label='step',
         # y_axis_label='value',
         plot_width=800,
@@ -346,16 +348,22 @@ def create_app(doc):
         #     ("value", "$y"),
         # ],
     )
-    fig.line(x='step', y='loss_map', source=steps_source, color=palette[0], legend_label='loss_map', nonselection_alpha=1)
-    fig.line(x='step', y='loss_kl', source=steps_source, color=palette[1], legend_label='loss_kl', nonselection_alpha=1)
-    fig.line(x='step', y='logprob_img', source=steps_source, color=palette[2], legend_label='logprob_img', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='acc_map', source=steps_source, color=palette[3], legend_label='acc_map', nonselection_alpha=1)
-    # fig.line(x='step', y='entropy_prior', source=steps_source, color=palette[4], legend_label='prior ent.', nonselection_alpha=1, visible=False)
-    # fig.line(x='step', y='entropy_post', source=steps_source, color=palette[5], legend_label='posterior ent.', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='value', source=steps_source, color=palette[4], legend_label='value', nonselection_alpha=1)
-    fig.line(x='step', y='return_discounted', source=steps_source, color=palette[6], legend_label='return_discounted', nonselection_alpha=1, visible=False)
-    fig.line(x='step', y='return', source=steps_source, color=palette[5], legend_label='return', nonselection_alpha=1, visible=False)
-    fig.legend.click_policy = "hide"
+    for i, (metric, visible) in enumerate([
+        ('loss_map', 1),
+        ('loss_kl', 1),
+        ('logprob_img', 0),
+        ('acc_map', 0),
+        # ('entropy_prior', 1),
+        # ('entropy_post', 1),
+        ('value', 1),
+        ('return_discounted', 0),
+        ('return', 0),
+        ('reward', 1),
+        ('reward_pred', 0),
+        ]):
+        fig.line(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=1, visible=visible==1)
+        fig.circle(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=0, visible=visible==1)
+    fig.legend.click_policy = 'hide'
 
 
     fmt = NumberFormatter(format="0.[00]")
@@ -383,7 +391,7 @@ def create_app(doc):
             # TableColumn(field="acc_map", formatter=fmt),
         ],
         width=800,
-        height=250,
+        height=300,
         selectable=True
     )
 
@@ -461,12 +469,15 @@ def create_app(doc):
                         layout([
                             [
                                 layout([
+                                    [artifact_steps_table],
                                     [steps_figure],
-                                    [artifact_steps_table]
                                 ]),
                                 layout([
-                                    [frame_figure_1, frame_figure_2, frame_figure_3],
-                                    [frame_figure_4, frame_figure_5, frame_figure_6],
+                                    # [frame_figure_1, frame_figure_2, frame_figure_3],
+                                    # [frame_figure_4, frame_figure_5, frame_figure_6],
+                                    [frame_figure_1, frame_figure_4],
+                                    [frame_figure_2, frame_figure_5],
+                                    [frame_figure_3, frame_figure_6],
                                     
                                 ])
                             ]
