@@ -140,7 +140,7 @@ def create_app(doc):
 
     # === Data sources ===
 
-    progress_log = []
+    progress_counter = 0
 
     def on_change(source, refresh=False):
         print(f'selected: {source}')
@@ -155,8 +155,9 @@ def create_app(doc):
             artifact_selected(None, None, None)
 
         # Loader
-        progress_log.append(f'selected: {source}')
-        text_progress.text = '\n'.join(progress_log)
+        nonlocal progress_counter
+        progress_counter += 1
+        text_progress.text = str(progress_counter)
 
     def on_update(source):
         print(f'updated: {source}')
@@ -415,7 +416,7 @@ def create_app(doc):
 
     # === Loader ===
 
-    text_progress = PreText(text='')
+    text_progress = PreText(text='', visible=False)  # This is dummy hidden text, just to trigger js_on_change events
     text_progress.js_on_change('text', CustomJS(code="document.getElementById('loader_overlay').style.display = 'none'"))  # type: ignore
 
     # === Layout ===
@@ -473,8 +474,6 @@ def create_app(doc):
                                     [steps_figure],
                                 ]),
                                 layout([
-                                    # [frame_figure_1, frame_figure_2, frame_figure_3],
-                                    # [frame_figure_4, frame_figure_5, frame_figure_6],
                                     [frame_figure_1, frame_figure_4],
                                     [frame_figure_2, frame_figure_5],
                                     [frame_figure_3, frame_figure_6],
