@@ -77,8 +77,8 @@ def load_artifact_steps(run_id, artifact_path):
     data_parsed = {}
     # if artifact_path.startswith('d2_train_batch/'):
     #     data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
-    if artifact_path.startswith('d2_wm_predict'):
-        data_parsed = artifacts_dreamer2.parse_d2_wm_predict(data)
+    if artifact_path.startswith('d2_wm_'):
+        data_parsed = artifacts_dreamer2.parse_d2_batch(data)
     elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes/'):
         data_parsed = artifacts_dreamer2.parse_d2_episodes(data)
     else:
@@ -226,7 +226,7 @@ def create_app(doc):
             # TableColumn(field="id", width=50),
             TableColumn(field="name", width=150),
         ],
-        width=350,
+        width=300,
         height=250,
         # fit_columns=False,
         selectable=True,
@@ -242,8 +242,8 @@ def create_app(doc):
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
-            # TableColumn(field="metrics.agent/steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="metrics.agent/steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
+            # TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.agent/episode_reward", title="return (old)", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.agent/return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
@@ -318,7 +318,7 @@ def create_app(doc):
         source=data_artifacts_dir.source,
         columns=[TableColumn(field="path", title="directory")],
         width=300,
-        height=200,
+        height=250,
         selectable=True,
     )
 
@@ -340,8 +340,8 @@ def create_app(doc):
         tools='xbox_select,wheel_zoom,tap,reset',
         x_axis_label='step',
         # y_axis_label='value',
-        plot_width=800,
-        plot_height=400,
+        plot_width=900,
+        plot_height=450,
         # tooltips=[
         #     ("run", "@run"),
         #     ("metric", "@metric"),
@@ -357,6 +357,7 @@ def create_app(doc):
         # ('entropy_prior', 1),
         # ('entropy_post', 1),
         ('value', 1),
+        ('value_target', 0),
         ('return_discounted', 0),
         ('return', 0),
         ('reward', 1),
@@ -377,7 +378,7 @@ def create_app(doc):
             TableColumn(field="reset", formatter=fmt),
             TableColumn(field="terminal", formatter=fmt),
             # TableColumn(field="reward_rec", formatter=fmt),
-            # TableColumn(field="action_pred", formatter=fmt),
+            TableColumn(field="action_pred", formatter=fmt),
             TableColumn(field="reward_pred", formatter=fmt),
             TableColumn(field="terminal_pred", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
@@ -385,13 +386,16 @@ def create_app(doc):
             # TableColumn(field="entropy_post", formatter=fmt),
             TableColumn(field="loss_kl", formatter=fmt),
             TableColumn(field="value", formatter=fmt),
-            TableColumn(field="return_discounted", formatter=fmt),
+            TableColumn(field="value_target", formatter=fmt),
+            TableColumn(field="value_weight", formatter=fmt),
+            TableColumn(field="value_advantage", formatter=fmt),
+            # TableColumn(field="return_discounted", formatter=fmt),
             # TableColumn(field="loss_image", formatter=fmt),
             # TableColumn(field="logprob_img", formatter=fmt),
             # TableColumn(field="loss_map", formatter=fmt),
             # TableColumn(field="acc_map", formatter=fmt),
         ],
-        width=800,
+        width=900,
         height=300,
         selectable=True
     )

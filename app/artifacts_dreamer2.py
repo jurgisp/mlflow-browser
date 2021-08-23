@@ -67,18 +67,23 @@ def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=DISCOUNT_GAMM
 #     )
 
 
-def parse_d2_wm_predict(data, take_episodes=10):
+def parse_d2_batch(data, take_episodes=10):
 
-    # If there are discrepancies between sizes, take smallest
+    # Cut all to same B
     B = min(v.shape[0] for k, v in data.items())
     B = min(B, take_episodes)
-    T = min(v.shape[1] for k, v in data.items())
-    N = B * T
-
     for k in data.keys():
-        data[k] = data[k][0:B, 0:T]
+        data[k] = data[k][0:B]  # Cut smaller
         if data[k].dtype == np.float16:
             data[k] = data[k].astype(np.float32)  # Operations are slow with float16
+
+    # Pad all to same T
+    T = max(v.shape[1] for k, v in data.items())
+    for k in data.keys():
+        v = data[k]
+        t = v.shape[1]
+        if t < T:
+            data[k] = np.pad(v, ((0, 0), (0, T - t)), 'constant', constant_values=np.nan)
 
     i_batch, i_step = np.indices((B, T))
     i_batch_step = i_batch * 1000 + i_step  # type: ignore
@@ -112,6 +117,8 @@ def parse_d2_wm_predict(data, take_episodes=10):
         image_pred=flatten(data.get('image_pred_p', data.get('image_pred', noimg))),
         reward_pred=flatten(data.get('reward_pred', nans)),
         terminal_pred=flatten(data.get('terminal_pred', nans)),
+        action_pred=flatten(data['action_pred']).argmax(axis=-1) if 'action_pred' in data else flatten(nans),
+        action_prob=flatten(data.get('action_prob', nans)),
         #
         loss_kl=flatten(data.get('loss_kl', nans)),
         loss_image=flatten(data.get('loss_image', nans)),
@@ -121,7 +128,11 @@ def parse_d2_wm_predict(data, take_episodes=10):
         entropy_prior=flatten(data.get('entropy_prior', nans)),
         entropy_post=flatten(data.get('entropy_post', nans)),
         #
-        value=flatten(data.get('policy_value', nans)),
+        value=flatten(data.get('value', data.get('policy_value', nans))),
+        value_target=flatten(data.get('value_target', nans)),
+        value_advantage=flatten(data.get('value_advantage', nans)),
+        value_advantage_gae=flatten(data.get('value_advantage_gae', nans)),
+        value_weight=flatten(data.get('value_weight', nans)),
     )
 
 
