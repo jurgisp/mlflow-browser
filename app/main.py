@@ -239,6 +239,7 @@ def create_app(doc):
         source=data_runs.source,
         columns=[
             TableColumn(field="name", title="run", width=150),
+            TableColumn(field="age_days", title="age", formatter=NumberFormatter(format="0.0"), width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),

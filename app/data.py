@@ -1,4 +1,5 @@
 from typing import Optional, Tuple
+from datetime import datetime
 from bokeh.models.callbacks import CustomJS
 import pandas as pd
 from bokeh.models import ColumnDataSource
@@ -120,6 +121,8 @@ class DataRuns(DataAbstract):
         df['start_time_local'] = dt_tolocal(df['start_time'])
         if 'metrics.agent/steps' in df:
             df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
+        if 'metrics._timestamp' in df:
+            df['age_days'] = (datetime.now().timestamp() - df['metrics._timestamp']) / 3600 / 24
         return df
 
     def set_selected(self):
