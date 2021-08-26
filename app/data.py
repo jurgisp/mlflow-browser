@@ -153,10 +153,11 @@ class DataMetricKeys(DataAbstract):
         if runs_df is None or len(runs_df) == 0:
             return pd.DataFrame({'metric': [], 'value': []})
         data = []
+        filters = [f.strip() for f in filter.split(',') if f.strip() != ''] if filter else []  # If "filter1, filter2" allow any one of matches
         for col in sorted(runs_df.columns):
             if col.startswith('metrics.'):
                 metrics_key = col.split('.')[1]
-                if not filter or filter in metrics_key:
+                if not filters or any([f in metrics_key for f in filters]):
                     vals = runs_df[col].to_list()
                     if not all([v is None or np.isnan(v) for v in vals]):
                         data.append({

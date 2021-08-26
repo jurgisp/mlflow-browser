@@ -162,7 +162,7 @@ def create_app(doc):
     def on_update(source):
         print(f'updated: {source}')
 
-    datac_keys_filter = DataControl(on_change, 'keys_filter', '')
+    datac_keys_filter = DataControl(on_change, 'keys_filter', 'train/, agent/')
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
     datac_tabs = DataControl(on_change, 'tabs', 'metrics')
 
@@ -450,7 +450,7 @@ def create_app(doc):
                                  active=0)
     radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
 
-    txt_metric_filter = TextInput(title="Filter:", width=350)
+    txt_metric_filter = TextInput(title="Filter:", width=350, value=datac_keys_filter.value)
     txt_metric_filter.on_change('value_input', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
 
     tabs = Tabs(active=0, tabs=[
