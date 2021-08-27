@@ -238,7 +238,8 @@ def create_app(doc):
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
-            TableColumn(field="name", title="run", width=150),
+            TableColumn(field="name", title="run", width=150,
+                        formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="age_days", title="age", formatter=NumberFormatter(format="0.0"), width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),

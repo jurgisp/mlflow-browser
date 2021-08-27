@@ -123,6 +123,9 @@ class DataRuns(DataAbstract):
             df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
         if 'metrics._timestamp' in df:
             df['age_days'] = (datetime.now().timestamp() - df['metrics._timestamp']) / 3600 / 24
+        else:
+            df['age_days'] = np.nan
+        df['status_color'] = df['age_days'].apply(lambda a: 'green' if a < 1.0/24 else 'black')
         return df
 
     def set_selected(self):
