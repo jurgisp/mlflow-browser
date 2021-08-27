@@ -1,3 +1,4 @@
+import os
 from typing import Optional, Tuple
 from datetime import datetime
 from bokeh.models.callbacks import CustomJS
@@ -13,6 +14,7 @@ from .tools import *
 MAX_RUNS = 100
 DEFAULT_METRICS = ['_loss']
 # DEFAULT_METRICS = []
+DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
 
@@ -112,6 +114,7 @@ class DataRuns(DataAbstract):
         return (self._data_experiments.selected_experiment_ids,)
 
     def load_data(self, experiment_ids):
+        experiment_ids = experiment_ids or DEFAULT_EXPERIMENT_IDS
         with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
             df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
         if len(df) == 0:
