@@ -222,6 +222,7 @@ class DataMetrics(DataAbstract):
                     ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
                     ts = ts / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
+                    ys[np.isposinf(ys) | np.isneginf(ys)] = np.nan
                     if smoothing_n:
                         xs, ts, ys = self._apply_smoothing(xs, ts, ys, smoothing_n)
                     if len(xs) == 0:
@@ -244,7 +245,8 @@ class DataMetrics(DataAbstract):
                         'time_max': max(ts),
                     })
                 i += 1
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        return df
 
     def set_selected(self):
         pass
