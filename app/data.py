@@ -128,10 +128,12 @@ class DataRuns(DataAbstract):
             df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
         if 'metrics._timestamp' in df:
             df['age_seconds'] = (datetime.now().timestamp() - df['metrics._timestamp'])
+            df['duration_seconds'] = df['metrics._timestamp'] - df['start_time'].view(int) / 1e9
         else:
             df['age_seconds'] = np.nan
         df['status_color'] = df['age_seconds'].apply(lambda a: 'green' if a < RUNNING_MAX_AGE else 'black')
         df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
+        df['duration'] = df['duration_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a > 0 else '')
         return df
 
     def set_selected(self):

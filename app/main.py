@@ -234,13 +234,14 @@ def create_app(doc):
 
     # Runs table
 
-    w = 80
+    w = 75
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
-            TableColumn(field="name", title="run", width=150,
+            TableColumn(field="name", title="run", width=150),
+            TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
-            TableColumn(field="age", title="age", width=60),
+            TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
@@ -261,7 +262,7 @@ def create_app(doc):
             TableColumn(field="experiment_id", title="exp", width=40),
             TableColumn(field="run_id", title="id", width=40),
         ],
-        width=1000,
+        width=1050,
         height=250,
         fit_columns=False,
         selectable=True
