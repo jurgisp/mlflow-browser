@@ -12,8 +12,10 @@ from .tools import *
 
 
 MAX_RUNS = 100
+RUNNING_MAX_AGE = 5 * 60
 DEFAULT_METRICS = ['_loss']
 # DEFAULT_METRICS = []
+
 DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
@@ -125,10 +127,11 @@ class DataRuns(DataAbstract):
         if 'metrics.agent/steps' in df:
             df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
         if 'metrics._timestamp' in df:
-            df['age_days'] = (datetime.now().timestamp() - df['metrics._timestamp']) / 3600 / 24
+            df['age_seconds'] = (datetime.now().timestamp() - df['metrics._timestamp'])
         else:
-            df['age_days'] = np.nan
-        df['status_color'] = df['age_days'].apply(lambda a: 'green' if a < 1.0/24 else 'black')
+            df['age_seconds'] = np.nan
+        df['status_color'] = df['age_seconds'].apply(lambda a: 'green' if a < RUNNING_MAX_AGE else 'black')
+        df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
         return df
 
     def set_selected(self):
