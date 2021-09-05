@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal
 
-DISCOUNT_GAMMA = 0.999
+DISCOUNT_GAMMA = 0.99
 
 
 def flatten(x):
@@ -25,10 +25,11 @@ def return_cumulative(reward: np.ndarray, reset: np.ndarray):
 def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=DISCOUNT_GAMMA):
     # PERF: would be better with numpy.ufunc.accumulate
     accumulate = []
-    val = 0
+    val0 = reward.mean() / (1.0 - DISCOUNT_GAMMA)
+    val = val0
     accumulate.append(val)
     for i in reversed(range(len(reward) - 1)):
-        val = gamma * val * (1 - reset[i + 1]) + reward[i + 1]
+        val = gamma * val * (1 - reset[i + 1]) + reward[i + 1] + reset[i + 1] * val0
         accumulate.append(val)
     return np.array(accumulate)[::-1]
 
