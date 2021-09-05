@@ -20,6 +20,7 @@ import artifacts_minigrid
 
 
 PLAY_INTERVAL = 100
+# PLAY_INTERVAL = 300
 PLAY_DELAY = 0
 
 SMOOTHING_OPTS = [0, 5, 10, 20]
@@ -79,7 +80,7 @@ def load_artifact_steps(run_id, artifact_path):
     #     data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
     if artifact_path.startswith('d2_wm_'):
         data_parsed = artifacts_dreamer2.parse_d2_batch(data)
-    elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes/'):
+    elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes'):
         data_parsed = artifacts_dreamer2.parse_d2_episodes(data)
     else:
         print(f'Artifact type not supported: {artifact_path}')
@@ -146,7 +147,7 @@ def create_app(doc):
         print(f'selected: {source}')
         data_experiments.update(refresh)
         data_runs.update(refresh)
-        data_keys.update(refresh, quick=(source == 'keys_filter'))
+        data_keys.update(refresh)
         data_metrics.update(refresh)
         data_artifacts_dir.update(refresh)
         data_artifacts.update(refresh)
@@ -238,18 +239,18 @@ def create_app(doc):
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
-            TableColumn(field="name", title="run", width=150),
+            TableColumn(field="name", title="run", width=200),
             TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.agent/steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="agent_steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.agent/episode_reward", title="return (old)", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.agent/return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
+            TableColumn(field="return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0,0"), width=w),
+            # TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
             # TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.eval_full/logprob_img", title="eval/img", formatter=NumberFormatter(format="0.00"), width=w),
@@ -258,9 +259,10 @@ def create_app(doc):
             #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
-            TableColumn(field="metrics.train/fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
+            TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
             TableColumn(field="experiment_id", title="exp", width=40),
-            TableColumn(field="run_id", title="id", width=40),
+            TableColumn(field="run_id", title="id", width=40,
+                        formatter=HTMLTemplateFormatter(template="<a href='http://mlflow.threethirds.ai:30000/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
         width=1050,
         height=250,
@@ -301,6 +303,7 @@ def create_app(doc):
                 ],
                 y_axis_type=y_axis_type,
             )
+            # p.yaxis[0].formatter = NumeralTickFormatter(format='00.0')
             p.xaxis[0].formatter = NumeralTickFormatter(format='0,0' if x_axis == 'steps' else '0.0')
             p.multi_line(
                 xs=x_axis,
@@ -310,7 +313,7 @@ def create_app(doc):
                 legend_field='legend',
                 line_width=2,
                 line_alpha=0.8)
-            # p.legend.location = 'top_left'
+            p.legend.location = 'top_left'
             metrics_figures.append(p)
 
     # === Artifacts ===
@@ -340,7 +343,7 @@ def create_app(doc):
     # Episode steps
 
     steps_figure = fig = figure(
-        tools='xbox_select,wheel_zoom,tap,reset',
+        tools='box_zoom,box_select,wheel_zoom,tap,reset',
         x_axis_label='step',
         # y_axis_label='value',
         plot_width=900,
@@ -385,7 +388,7 @@ def create_app(doc):
             TableColumn(field="reward_pred", formatter=fmt),
             TableColumn(field="terminal_pred", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
-            # TableColumn(field="entropy_prior", formatter=fmt),
+            TableColumn(field="entropy_prior", formatter=fmt),
             # TableColumn(field="entropy_post", formatter=fmt),
             TableColumn(field="loss_kl", formatter=fmt),
             TableColumn(field="value", formatter=fmt),
@@ -410,15 +413,15 @@ def create_app(doc):
     frame_figure_2 = fig = figure(title='Prediction', **kwargs)
     frame_figure_3 = fig = figure(title='Reconstruction', **kwargs)
     frame_figure_4 = fig = figure(title='Map', **kwargs)
-    frame_figure_5 = fig = figure(title='Map prediction (global)', **kwargs)
+    frame_figure_5 = fig = figure(title='Map target', **kwargs)
     frame_figure_6 = fig = figure(title='Map prediction', **kwargs)
     kwargs = dict(x=0, y=0, dw=10, dh=10)
     frame_figure_1.image_rgba(image='image', source=frame_source, **kwargs)
     frame_figure_2.image_rgba(image='image_pred', source=frame_source, **kwargs)
     frame_figure_3.image_rgba(image='image_rec', source=frame_source, **kwargs)
     frame_figure_4.image_rgba(image='map_agent', source=frame_source, **kwargs)
-    # frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
-    frame_figure_5.image_rgba(image='map_rec_global', source=frame_source, **kwargs)
+    frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
+    # frame_figure_5.image_rgba(image='map_rec_global', source=frame_source, **kwargs)
     frame_figure_6.image_rgba(image='map_rec', source=frame_source, **kwargs)
 
     # === Loader ===
@@ -451,9 +454,11 @@ def create_app(doc):
                                  labels=['No smoothing'] + [str(i) for i in SMOOTHING_OPTS[1:]],
                                  active=0)
     radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
+    radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     txt_metric_filter = TextInput(title="Filter:", width=350, value=datac_keys_filter.value)
-    txt_metric_filter.on_change('value_input', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
+    txt_metric_filter.on_change('value', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
+    txt_metric_filter.js_on_change('value', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([

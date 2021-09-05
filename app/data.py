@@ -12,9 +12,10 @@ from .tools import *
 
 
 MAX_RUNS = 100
-RUNNING_MAX_AGE = 5 * 60
-DEFAULT_METRICS = ['_loss']
-# DEFAULT_METRICS = []
+RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
+FAILED_DURATION = 90 * 60  # mark as failed if shorter than this
+# DEFAULT_METRICS = ['_loss']
+DEFAULT_METRICS = []
 
 DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
@@ -124,16 +125,38 @@ class DataRuns(DataAbstract):
         df['id'] = df['run_id']
         df['name'] = df['tags.mlflow.runName']
         df['start_time_local'] = dt_tolocal(df['start_time'])
-        if 'metrics.agent/steps' in df:
-            df['metrics.agent/steps_x4'] = df['metrics.agent/steps'] * 4  # hack for Atari
+
+        def combine_columns(df, col_names):
+            res = None
+            for col in col_names:
+                if col in df:
+                    if res is None:
+                        res = df[col]
+                    else:
+                        res = res.combine_first(df[col])
+            return res if res is not None else np.nan
+
+        # Hacky unified metrics
+        df['agent_steps'] = combine_columns(df, ['metrics.train/data_steps', 'metrics.data/steps', 'metrics.agent/steps', 'metrics.train_replay_steps'])
+        df['agent_steps_x4'] = df['agent_steps'] * 4
+        df['return'] = combine_columns(df, ['metrics.agent/return', 'metrics.train_return'])
+        df['episode_length'] = combine_columns(df, ['metrics.agent/episode_length', 'metrics.train_length'])
+        df['fps'] = combine_columns(df, ['metrics.train/fps', 'metrics.fps'])
+
+        # Age/Duration metrics
         if 'metrics._timestamp' in df:
             df['age_seconds'] = (datetime.now().timestamp() - df['metrics._timestamp'])
             df['duration_seconds'] = df['metrics._timestamp'] - df['start_time'].view(int) / 1e9
         else:
             df['age_seconds'] = np.nan
-        df['status_color'] = df['age_seconds'].apply(lambda a: 'green' if a < RUNNING_MAX_AGE else 'black')
+            df['duration_seconds'] = np.nan
         df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
         df['duration'] = df['duration_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a > 0 else '')
+        
+        # Status color
+        df['status_color'] = 'black'
+        df.loc[df['age_seconds'] < RUNNING_MAX_AGE, 'status_color'] = 'green'
+        df.loc[(df['age_seconds'] > RUNNING_MAX_AGE) & (df['duration_seconds'] < FAILED_DURATION) , 'status_color'] = 'red'
         return df
 
     def set_selected(self):
@@ -335,3 +358,6 @@ class DataArtifacts(DataAbstract):
     def set_selected(self):
         cols = selected_columns(self.source)
         self.selected_paths = cols.get('path', [])
+
+    def reselect(self, is_refresh):
+        self.source.selected.indices = []  # type: ignore
