@@ -163,7 +163,7 @@ def create_app(doc):
     def on_update(source):
         print(f'updated: {source}')
 
-    datac_keys_filter = DataControl(on_change, 'keys_filter', 'train/, agent/')
+    datac_keys_filter = DataControl(on_change, 'keys_filter', DEFAULT_FILTER)
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
     datac_tabs = DataControl(on_change, 'tabs', 'metrics')
 

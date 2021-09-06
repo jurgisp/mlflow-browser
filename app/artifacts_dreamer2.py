@@ -34,6 +34,12 @@ def return_discounted(reward: np.ndarray, reset: np.ndarray, gamma=DISCOUNT_GAMM
     return np.array(accumulate)[::-1]
 
 
+def _action_categorical(action):
+    if action.dtype in [np.float32, np.float64]:
+        return action.argmax(axis=-1)
+    else:
+        return action
+
 # def parse_d2_train_batch(data):
 #     b, t = data['reward'].shape
 #     n = b * t
@@ -154,7 +160,7 @@ def parse_d2_episodes(data):
 
     return dict(
         step=i_step,
-        action=data['action'].argmax(axis=-1),
+        action=_action_categorical(data['action']),
         reward=data['reward'],
         image=data['image'],
         terminal=data.get('terminal', nans),

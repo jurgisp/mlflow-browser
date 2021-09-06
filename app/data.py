@@ -16,6 +16,8 @@ RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
 FAILED_DURATION = 90 * 60  # mark as failed if shorter than this
 # DEFAULT_METRICS = ['_loss']
 DEFAULT_METRICS = []
+# DEFAULT_FILTER = 'train/, agent/'
+DEFAULT_FILTER = ''
 
 DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
