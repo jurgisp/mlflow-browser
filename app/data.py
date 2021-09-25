@@ -111,14 +111,15 @@ class DataExperiments(DataAbstract):
 
 
 class DataRuns(DataAbstract):
-    def __init__(self, callback, data_experiments: DataExperiments, name='runs'):
+    def __init__(self, callback, data_experiments: DataExperiments, datac_filter: DataControl, name='runs'):
         self._data_experiments = data_experiments
+        self._datac_filter = datac_filter
         super().__init__(callback, name)
 
     def get_in_state(self):
-        return (self._data_experiments.selected_experiment_ids,)
+        return (self._data_experiments.selected_experiment_ids, self._datac_filter.value)
 
-    def load_data(self, experiment_ids):
+    def load_data(self, experiment_ids, filter):
         experiment_ids = experiment_ids or DEFAULT_EXPERIMENT_IDS
         with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
             df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
@@ -128,8 +129,12 @@ class DataRuns(DataAbstract):
         df['name'] = df['tags.mlflow.runName']
         df['start_time_local'] = dt_tolocal(df['start_time'])
 
+        # filter
+        if filter:
+            df = df[df['name'].str.contains(filter)]
+
         # Experiment name
-        df['experiment_id'] = df['experiment_id'].astype(int)
+        df['experiment_id'] = df['experiment_id'].astype(int)  # type: ignore
         df_exp = self._data_experiments.data.rename(columns={
             'name': 'experiment_name', 
             'id': 'experiment_id'})

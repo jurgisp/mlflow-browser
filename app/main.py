@@ -160,11 +160,12 @@ def create_app(doc):
         print(f'updated: {source}')
 
     datac_keys_filter = DataControl(on_change, 'keys_filter', DEFAULT_FILTER)
+    datac_runs_filter = DataControl(on_change, 'runs_filter', '')
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
     datac_tabs = DataControl(on_change, 'tabs', 'metrics')
 
     data_experiments = DataExperiments(on_change)
-    data_runs = DataRuns(on_change, data_experiments)
+    data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
     data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
@@ -455,6 +456,10 @@ def create_app(doc):
     txt_metric_filter.on_change('value', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
     txt_metric_filter.js_on_change('value', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
+    txt_runs_filter = TextInput(title="Search runs:", width=200, value=datac_runs_filter.value)
+    txt_runs_filter.on_change('value', lambda attr, old, new: datac_runs_filter.set(new))  # type: ignore
+    txt_runs_filter.js_on_change('value', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
+
     tabs = Tabs(active=0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [
@@ -499,7 +504,12 @@ def create_app(doc):
             [
                 experiments_table,
                 runs_table,
-                layouts.column([btn_refresh, btn_delete, btn_play]),  # type: ignore
+                layouts.column([  # type: ignore
+                    txt_runs_filter,
+                    btn_refresh,
+                    btn_delete,
+                    btn_play
+                ]),
             ],
             [tabs],
             [text_progress],
