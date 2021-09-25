@@ -128,6 +128,13 @@ class DataRuns(DataAbstract):
         df['name'] = df['tags.mlflow.runName']
         df['start_time_local'] = dt_tolocal(df['start_time'])
 
+        # Experiment name
+        df['experiment_id'] = df['experiment_id'].astype(int)
+        df_exp = self._data_experiments.data.rename(columns={
+            'name': 'experiment_name', 
+            'id': 'experiment_id'})
+        df = pd.merge(df, df_exp, how='left', on='experiment_id')
+
         def combine_columns(df, col_names):
             res = None
             for col in col_names:
@@ -154,11 +161,11 @@ class DataRuns(DataAbstract):
             df['duration_seconds'] = np.nan
         df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
         df['duration'] = df['duration_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a > 0 else '')
-        
+
         # Status color
         df['status_color'] = 'black'
         df.loc[df['age_seconds'] < RUNNING_MAX_AGE, 'status_color'] = 'green'
-        df.loc[(df['age_seconds'] > RUNNING_MAX_AGE) & (df['duration_seconds'] < FAILED_DURATION) , 'status_color'] = 'red'
+        df.loc[(df['age_seconds'] > RUNNING_MAX_AGE) & (df['duration_seconds'] < FAILED_DURATION), 'status_color'] = 'red'
         return df
 
     def set_selected(self):

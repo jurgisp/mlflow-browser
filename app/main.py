@@ -1,4 +1,3 @@
-# %%
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -23,7 +22,7 @@ PLAY_INTERVAL = 100
 # PLAY_INTERVAL = 300
 PLAY_DELAY = 0
 
-SMOOTHING_OPTS = [0, 5, 10, 20]
+SMOOTHING_OPTS = [0, 4, 10, 30, 100]
 
 mlflow_client = MlflowClient()
 
@@ -38,9 +37,9 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     if hide_axes:
         fig.xaxis.visible = False
         fig.yaxis.visible = False
-    if kwargs.get('y_axis_type') == 'log':
-        # For some reason log axis is flipped by default
-        fig.y_range.flipped = True  # type: ignore
+    # if kwargs.get('y_axis_type') == 'log':
+    #     # For some reason log axis is flipped by default
+    #     fig.y_range.flipped = True  # type: ignore
     return fig
 
 
@@ -128,14 +127,11 @@ def load_frame(step_data=None,
         data[k] = [img]
     return data
 
-# %%
 
 # load_artifacts({'id':'db1a75611d464df08f1c7052cc8b1047'})
 # data = download_artifact_npz('db1a75611d464df08f1c7052cc8b1047', 'd2_train_batch/0000951.npz')
 # data['imag_image'].shape
 
-
-# %%
 
 def create_app(doc):
 
@@ -228,7 +224,7 @@ def create_app(doc):
             TableColumn(field="name", width=150),
         ],
         width=300,
-        height=250,
+        height=400,
         # fit_columns=False,
         selectable=True,
     )
@@ -239,6 +235,7 @@ def create_app(doc):
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
+            TableColumn(field="experiment_name", title="exp", width=100),
             TableColumn(field="name", title="run", width=200),
             TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
@@ -260,12 +257,11 @@ def create_app(doc):
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
-            TableColumn(field="experiment_id", title="exp", width=40),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template="<a href='http://mlflow.threethirds.ai:30000/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
         width=1050,
-        height=250,
+        height=400,
         fit_columns=False,
         selectable=True
     )
@@ -365,14 +361,13 @@ def create_app(doc):
         ('value', 1),
         ('value_target', 0),
         ('return_discounted', 0),
-        ('return', 0),
+        ('return', 1),
         ('reward', 1),
         ('reward_pred', 0),
-        ]):
-        fig.line(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=1, visible=visible==1)
-        fig.circle(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=0, visible=visible==1)
+    ]):
+        fig.line(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=1, visible=visible == 1)
+        fig.circle(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=0, visible=visible == 1)
     fig.legend.click_policy = 'hide'
-
 
     fmt = NumberFormatter(format="0.[00]")
     artifact_steps_table = DataTable(
@@ -407,7 +402,7 @@ def create_app(doc):
     )
 
     # Frame
-   
+
     kwargs = dict(plot_width=250, plot_height=250, x_range=[0, 10], y_range=[0, 10], toolbar_location=None, active_scroll=False, hide_axes=True)
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
     frame_figure_2 = fig = figure(title='Prediction', **kwargs)
@@ -487,9 +482,9 @@ def create_app(doc):
                                 ]),
                                 layout([
                                     [frame_figure_1, frame_figure_4],
-                                    [frame_figure_2, frame_figure_5],
-                                    [frame_figure_3, frame_figure_6],
-                                    
+                                    [frame_figure_2, frame_figure_6],
+                                    [frame_figure_3, frame_figure_5],
+
                                 ])
                             ]
                         ]),
