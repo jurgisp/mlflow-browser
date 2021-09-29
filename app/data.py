@@ -11,7 +11,7 @@ from bokeh.palettes import Category10_10
 from .tools import *
 
 
-MAX_RUNS = 100
+MAX_RUNS = 500
 RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
 FAILED_DURATION = 90 * 60  # mark as failed if shorter than this
 # DEFAULT_METRICS = ['_loss']
@@ -153,7 +153,7 @@ class DataRuns(DataAbstract):
         # Hacky unified metrics
         df['agent_steps'] = combine_columns(df, ['metrics.train/data_steps', 'metrics.data/steps', 'metrics.agent/steps', 'metrics.train_replay_steps'])
         df['agent_steps_x4'] = df['agent_steps'] * 4
-        df['return'] = combine_columns(df, ['metrics.agent/return', 'metrics.train_return'])
+        df['return'] = combine_columns(df, ['metrics.agent/return', 'metrics.agent_eval/return', 'metrics.train_return'])
         df['episode_length'] = combine_columns(df, ['metrics.agent/episode_length', 'metrics.train_length'])
         df['fps'] = combine_columns(df, ['metrics.train/fps', 'metrics.fps'])
 

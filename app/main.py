@@ -225,28 +225,29 @@ def create_app(doc):
             TableColumn(field="name", width=150),
         ],
         width=300,
-        height=400,
+        height=450,
         # fit_columns=False,
         selectable=True,
     )
 
     # Runs table
 
-    w = 75
+    w = 60
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
-            TableColumn(field="experiment_name", title="exp", width=100),
-            TableColumn(field="name", title="run", width=200),
+            TableColumn(field="experiment_name", title="exp", width=150),
+            TableColumn(field="name", title="run", width=250),
             TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="duration", title="duration", width=60),
-            TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=150),
-            TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
+            TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=80),
             # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="agent_steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="agent_steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=80),
             # TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0,0"), width=w),
             # TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
@@ -257,12 +258,11 @@ def create_app(doc):
             #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
-            TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=40),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template="<a href='http://mlflow.threethirds.ai:30000/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
         width=1050,
-        height=400,
+        height=450,
         fit_columns=False,
         selectable=True
     )
