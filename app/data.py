@@ -357,11 +357,6 @@ class DataArtifacts(DataAbstract):
         return df
 
     def _load_artifacts(self, run_id, path, dirs):
-        if path is None:
-            # HACK
-            artifacts = ['d2_wm_closed_eval']
-            return pd.DataFrame({'path': artifacts, 'name': artifacts})
-
         with Timer(f'mlflow.list_artifacts({path})', verbose=True):
             artifacts = mlflow_client.list_artifacts(run_id, path)
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
@@ -379,7 +374,4 @@ class DataArtifacts(DataAbstract):
         self.selected_paths = cols.get('path', [])
 
     def reselect(self, is_refresh):
-        if len(self.data) == 1:
-            self.source.selected.indices = [0]  # type: ignore
-        else:
-            self.source.selected.indices = []  # type: ignore
+        self.source.selected.indices = []  # type: ignore
