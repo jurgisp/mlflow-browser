@@ -21,7 +21,8 @@ import artifacts_minigrid
 PLAY_INTERVAL = 100
 # PLAY_INTERVAL = 300
 PLAY_DELAY = 0
-DEFAULT_TAB = 'metrics'
+# DEFAULT_TAB = 'metrics'
+DEFAULT_TAB = 'artifacts'
 
 SMOOTHING_OPTS = [0, 4, 10, 30, 100]
 
