@@ -19,6 +19,8 @@ def render_obs(obs, tile_size=16):
 
     # (N,N) - sampled frame
     if len(obs.shape) == 2 and obs.shape[0] == obs.shape[1] and np.issubdtype(obs.dtype, np.integer):
+        if obs.shape == (7, 7):
+            obs[3, 6] = 7
         return _render_obs(obs)
 
     # (N,N,C) - probabilities
