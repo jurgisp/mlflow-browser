@@ -21,6 +21,7 @@ import artifacts_minigrid
 PLAY_INTERVAL = 100
 # PLAY_INTERVAL = 300
 PLAY_DELAY = 0
+DEFAULT_TAB = 'metrics'
 
 SMOOTHING_OPTS = [0, 4, 10, 30, 100]
 
@@ -162,7 +163,7 @@ def create_app(doc):
     datac_keys_filter = DataControl(on_change, 'keys_filter', DEFAULT_FILTER)
     datac_runs_filter = DataControl(on_change, 'runs_filter', '')
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
-    datac_tabs = DataControl(on_change, 'tabs', 'metrics')
+    datac_tabs = DataControl(on_change, 'tabs', DEFAULT_TAB)
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
@@ -221,12 +222,12 @@ def create_app(doc):
     experiments_table = DataTable(
         source=data_experiments.source,
         columns=[
-            # TableColumn(field="id", width=50),
-            TableColumn(field="name", width=150),
+            TableColumn(field="name", width=200),
+            TableColumn(field="id", width=50),
         ],
         width=300,
         height=450,
-        # fit_columns=False,
+        fit_columns=False,
         selectable=True,
     )
 
@@ -460,7 +461,7 @@ def create_app(doc):
     txt_runs_filter.on_change('value', lambda attr, old, new: datac_runs_filter.set(new))  # type: ignore
     txt_runs_filter.js_on_change('value', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
-    tabs = Tabs(active=0, tabs=[
+    tabs = Tabs(active=1 if datac_tabs.value == 'artifacts' else 0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [
                         layout([
