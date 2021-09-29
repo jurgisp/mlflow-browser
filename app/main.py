@@ -413,8 +413,8 @@ def create_app(doc):
     frame_figure_1 = fig = figure(title='Observation', **kwargs)
     frame_figure_2 = fig = figure(title='Prediction', **kwargs)
     frame_figure_3 = fig = figure(title='Reconstruction', **kwargs)
-    frame_figure_4 = fig = figure(title='Map', **kwargs)
-    frame_figure_5 = fig = figure(title='Map target', **kwargs)
+    frame_figure_4 = fig = figure(title='Environment', **kwargs)
+    frame_figure_5 = fig = figure(title='Trajectory', **kwargs)
     frame_figure_6 = fig = figure(title='Map prediction', **kwargs)
     kwargs = dict(x=0, y=0, dw=10, dh=10)
     frame_figure_1.image_rgba(image='image', source=frame_source, **kwargs)
@@ -491,9 +491,9 @@ def create_app(doc):
                                     [steps_figure],
                                 ]),
                                 layout([
-                                    [frame_figure_1, frame_figure_4],
-                                    [frame_figure_2, frame_figure_6],
-                                    [frame_figure_3, frame_figure_5],
+                                    [frame_figure_4, frame_figure_1],
+                                    [frame_figure_2, frame_figure_3],
+                                    [frame_figure_5, frame_figure_6],
 
                                 ])
                             ]
