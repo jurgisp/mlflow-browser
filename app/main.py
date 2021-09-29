@@ -207,8 +207,11 @@ def create_app(doc):
         if run_id and artifact_path:
             data = load_artifact_steps(run_id, artifact_path)
             steps_source.data = data  # type: ignore
+            if len(data) > 0:
+                steps_source.selected.indices = [0]  # type: ignore
         else:
             steps_source.data = {}  # type: ignore
+            steps_source.selected.indices = []  # type: ignore
 
     def update_frame(offset=0):
         steps = selected_rows(steps_source)
