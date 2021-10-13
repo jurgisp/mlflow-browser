@@ -2,3 +2,5 @@ pandas
 bokeh
 mlflow
 scikit-image
+google.cloud.storage  # mlflow artifacts
+azure-storage-blob  # mlflow artifacts

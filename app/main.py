@@ -237,6 +237,7 @@ def create_app(doc):
     # Runs table
 
     w = 60
+    mlflow_tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
@@ -263,7 +264,7 @@ def create_app(doc):
             #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="run_id", title="id", width=40,
-                        formatter=HTMLTemplateFormatter(template="<a href='http://mlflow.threethirds.ai:30000/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
+                        formatter=HTMLTemplateFormatter(template=f"<a href='{mlflow_tracking_uri}/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
         width=1050,
         height=450,
