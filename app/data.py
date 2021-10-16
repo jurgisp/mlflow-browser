@@ -353,8 +353,8 @@ class DataArtifacts(DataAbstract):
         else:
             parent_dir = None
 
-        if parent_dir == 'episodes':
-            parent_dir = 'episodes/0'  # HACK
+        if parent_dir == 'episodes' or parent_dir == 'episodes_eval':
+            parent_dir = parent_dir + '/0'  # HACK
         df = self._load_artifacts(run_id, parent_dir, self._is_dir)
         return df
 
