@@ -136,7 +136,7 @@ class DataRuns(DataAbstract):
         # Experiment name
         df['experiment_id'] = df['experiment_id'].astype(int)  # type: ignore
         df_exp = self._data_experiments.data.rename(columns={
-            'name': 'experiment_name', 
+            'name': 'experiment_name',
             'id': 'experiment_id'})
         df = pd.merge(df, df_exp, how='left', on='experiment_id')
 
@@ -151,9 +151,16 @@ class DataRuns(DataAbstract):
             return res if res is not None else np.nan
 
         # Hacky unified metrics
-        df['agent_steps'] = combine_columns(df, ['metrics.train/data_steps', 'metrics.data/steps', 'metrics.agent/steps', 'metrics.train_replay_steps'])
+        df['agent_steps'] = combine_columns(df, ['metrics.train/data_steps',
+                                                 'metrics.data/steps',
+                                                 'metrics.agent/steps',
+                                                 'metrics.train_replay_steps'])
         df['agent_steps_x4'] = df['agent_steps'] * 4
-        df['return'] = combine_columns(df, ['metrics.agent/return', 'metrics.agent_eval/return', 'metrics.train_return'])
+        df['return'] = combine_columns(df, ['metrics.agent_eval/return_cum100',
+                                            'metrics.agent/return_cum100',
+                                            'metrics.agent_eval/return',
+                                            'metrics.agent/return',
+                                            'metrics.train_return'])
         df['episode_length'] = combine_columns(df, ['metrics.agent/episode_length', 'metrics.train_length'])
         df['fps'] = combine_columns(df, ['metrics.train/fps', 'metrics.fps'])
 

@@ -22,6 +22,7 @@ PLAY_INTERVAL = 100
 # PLAY_INTERVAL = 300
 PLAY_DELAY = 0
 DEFAULT_TAB = 'metrics'
+TABLE_HEIGHT = 350
 
 SMOOTHING_OPTS = [0, 4, 10, 30, 100]
 
@@ -229,7 +230,7 @@ def create_app(doc):
             TableColumn(field="id", width=50),
         ],
         width=300,
-        height=450,
+        height=TABLE_HEIGHT,
         fit_columns=False,
         selectable=True,
     )
@@ -241,33 +242,28 @@ def create_app(doc):
     runs_table = DataTable(
         source=data_runs.source,
         columns=[
-            TableColumn(field="experiment_name", title="exp", width=150),
+            TableColumn(field="experiment_name", title="exp", width=100),
             TableColumn(field="name", title="run", width=250),
             TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=80),
-            # TableColumn(field="metrics._loss", title="_loss", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="agent_steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=80),
-            # TableColumn(field="metrics.agent/steps_x4", title="agent_steps_x4", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="return", title="return", formatter=NumberFormatter(format="0,0"), width=w),
+            TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.eval/logprob_img", title="logprob_img(eval)", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.train/loss_wm_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.train/loss_wm_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0,0"), width=w),
-            # TableColumn(field="metrics.train/policy_value", title="value", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
-            # TableColumn(field="metrics.loss_model", title="loss_model", formatter=NumberFormatter(format="0.00"), width=w),
-            # TableColumn(field="metrics.eval_full/logprob_img", title="eval/img", formatter=NumberFormatter(format="0.00"), width=w),
-            # TableColumn(field="metrics.eval_full/logprob_map", title="eval/map", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
-            #  TableColumn(field="metrics.actor_ent", title="actor_ent", formatter=NumberFormatter(format="0.00"), width=w),
-            #  TableColumn(field="metrics.train_return", title="train_return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template=f"<a href='{mlflow_tracking_uri}/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
         width=1050,
-        height=450,
+        height=TABLE_HEIGHT,
         fit_columns=False,
         selectable=True
     )
@@ -414,7 +410,7 @@ def create_app(doc):
     frame_figure_2 = fig = figure(title='Prediction', **kwargs)
     frame_figure_3 = fig = figure(title='Reconstruction', **kwargs)
     frame_figure_4 = fig = figure(title='Environment', **kwargs)
-    frame_figure_5 = fig = figure(title='Trajectory', **kwargs)
+    frame_figure_5 = fig = figure(title='Map', **kwargs)
     frame_figure_6 = fig = figure(title='Map prediction', **kwargs)
     kwargs = dict(x=0, y=0, dw=10, dh=10)
     frame_figure_1.image_rgba(image='image', source=frame_source, **kwargs)
@@ -491,9 +487,9 @@ def create_app(doc):
                                     [steps_figure],
                                 ]),
                                 layout([
-                                    [frame_figure_4, frame_figure_1],
+                                    [frame_figure_1, frame_figure_4],
                                     [frame_figure_2, frame_figure_3],
-                                    [frame_figure_5, frame_figure_6],
+                                    [frame_figure_6, frame_figure_5],
 
                                 ])
                             ]
