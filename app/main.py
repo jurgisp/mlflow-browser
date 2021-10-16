@@ -197,9 +197,9 @@ def create_app(doc):
     # Data update
 
     def delete_run_callback():
-        if len(data_runs.selected_run_ids) == 1:
-            delete_run(data_runs.selected_run_ids[0])
-            on_change('delete_run', refresh=True)
+        for run_id in data_runs.selected_run_ids:
+            delete_run(run_id)
+        on_change('delete_run', refresh=True)
 
     def update_steps():
         run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
