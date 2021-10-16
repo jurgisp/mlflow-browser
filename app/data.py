@@ -237,6 +237,35 @@ class DataMetricKeys(DataAbstract):
             df = df[df['metric'].isin(self.selected_keys)]
             self.source.selected.indices = df.index.to_list()  # type: ignore
 
+class DataRunParameters(DataAbstract):
+    def __init__(self, callback, data_runs: DataRuns, datac_filter: DataControl, name='run_parameters'):
+        self._data_runs = data_runs
+        self._datac_filter = datac_filter
+        super().__init__(callback, name)
+
+    def get_in_state(self):
+        return (self._data_runs.selected_run_ids, self._datac_filter.value)
+
+    def load_data(self, run_ids, filter):
+        runs_df = self._data_runs.selected_run_df
+        if runs_df is None or len(runs_df) == 0:
+            return pd.DataFrame()
+        data = []
+        filters = [f.strip() for f in filter.split(',') if f.strip() != ''] if filter else []  # If "filter1, filter2" allow any one of matches
+        for col in sorted(runs_df.columns):
+            if col.startswith('params.'):
+                param_key = col.split('.')[1]
+                if not filters or any([f in param_key for f in filters]):
+                    vals = runs_df[col].to_list()
+                    if any(vals):
+                        data.append({
+                            'param': param_key,
+                            'value1': vals[0],
+                            'value2': vals[1] if len(vals) >= 2 else '',
+                            'diff_color': 'red' if len(vals) >= 2 and vals[0] != vals[1] else 'black'
+                        })
+        return pd.DataFrame(data)
+
 
 class DataMetrics(DataAbstract):
     def __init__(self, callback, callback_update, data_runs: DataRuns, data_keys: DataMetricKeys, datac_smoothing: DataControl, name='metrics'):

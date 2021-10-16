@@ -145,6 +145,7 @@ def create_app(doc):
         print(f'selected: {source}')
         data_experiments.update(refresh)
         data_runs.update(refresh)
+        data_params.update(refresh)
         data_keys.update(refresh)
         data_metrics.update(refresh)
         data_artifacts_dir.update(refresh)
@@ -168,6 +169,7 @@ def create_app(doc):
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
+    data_params = DataRunParameters(on_change, data_runs, datac_keys_filter)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
     data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
@@ -266,6 +268,22 @@ def create_app(doc):
         height=TABLE_HEIGHT,
         fit_columns=False,
         selectable=True
+    )
+
+    # Params table
+
+    params_table = DataTable(
+        source=data_params.source,
+        columns=[TableColumn(field="param", width=120),
+                 TableColumn(field="value1", width=90,
+                             formatter=HTMLTemplateFormatter(template="<span style='color:<%= diff_color %>'><%= value %></span>")),
+                 TableColumn(field="value2", width=90,
+                             formatter=HTMLTemplateFormatter(template="<span style='color:<%= diff_color %>'><%= value %></span>")),
+                 ],
+        width=350,
+        height=600,
+        fit_columns=False,
+        selectable=True,
     )
 
     # Keys table
@@ -466,7 +484,12 @@ def create_app(doc):
                     [
                         layout([
                             [txt_metric_filter],
-                            [keys_table],
+                            [
+                                Tabs(active=0, tabs=[
+                                    Panel(title="Metrics", child=keys_table),
+                                    Panel(title="Parameters", child=params_table),
+                                ]),
+                            ],
                         ]),
                         Tabs(active=0, tabs=[
                             Panel(title="Linear/Steps", child=metrics_figures[0]),
