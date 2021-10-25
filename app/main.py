@@ -358,36 +358,40 @@ def create_app(doc):
 
     # Episode steps
 
-    steps_figure = fig = figure(
-        tools='box_zoom,box_select,wheel_zoom,tap,reset',
-        x_axis_label='step',
-        # y_axis_label='value',
-        plot_width=900,
-        plot_height=450,
-        # tooltips=[
-        #     ("run", "@run"),
-        #     ("metric", "@metric"),
-        #     ("step", "$x{0,0}"),
-        #     ("value", "$y"),
-        # ],
-    )
-    for i, (metric, visible) in enumerate([
-        ('loss_map', 1),
-        ('loss_kl', 1),
-        ('logprob_img', 0),
-        ('acc_map', 0),
+    steps_figures = [
+        figure(
+            tools='box_zoom,box_select,wheel_zoom,tap,reset',
+            x_axis_label='step',
+            plot_width=900,
+            plot_height=450,
+        ),
+        figure(
+            tools='box_zoom,box_select,wheel_zoom,tap,reset',
+            x_axis_label='step',
+            plot_width=900,
+            plot_height=450,
+        ),
+    ]
+    for i, (ifig, metric, visible) in enumerate([
+        (0, 'loss_map', 1),
+        (0, 'loss_kl', 1),
+        (0, 'logprob_img', 0),
+        (0, 'acc_map', 0),
         # ('entropy_prior', 1),
         # ('entropy_post', 1),
-        ('value', 1),
-        ('value_target', 0),
-        ('return_discounted', 0),
-        ('return', 1),
-        ('reward', 1),
-        ('reward_pred', 0),
+        (1, 'value', 1),
+        (1, 'value_target', 0),
+        (1, 'return_discounted', 0),
+        (1, 'return', 1),
+        (1, 'reward', 1),
+        (1, 'reward_pred', 1),
+        (1, 'vecnovel', 1),
     ]):
-        fig.line(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=1, visible=visible == 1)
-        fig.circle(x='step', y=metric, source=steps_source, color=palette[i], legend_label=metric, nonselection_alpha=0, visible=visible == 1)
-    fig.legend.click_policy = 'hide'
+        fig = steps_figures[ifig]
+        fig.line(x='step', y=metric, source=steps_source, color=palette[i % len(palette)], legend_label=metric, nonselection_alpha=1, visible=visible == 1)
+        fig.circle(x='step', y=metric, source=steps_source, color=palette[i % len(palette)], legend_label=metric, nonselection_alpha=0, visible=visible == 1)
+    for fig in steps_figures:
+        fig.legend.click_policy = 'hide'
 
     fmt = NumberFormatter(format="0.[00]")
     artifact_steps_table = DataTable(
@@ -507,7 +511,12 @@ def create_app(doc):
                             [
                                 layout([
                                     [artifact_steps_table],
-                                    [steps_figure],
+                                    [
+                                        Tabs(active=1, tabs=[
+                                            Panel(title="Losses", child=steps_figures[0]),
+                                            Panel(title="Rewards", child=steps_figures[1]),
+                                        ])
+                                    ],
                                 ]),
                                 layout([
                                     [frame_figure_1, frame_figure_4],
