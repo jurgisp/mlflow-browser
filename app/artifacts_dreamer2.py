@@ -41,7 +41,7 @@ def _action_categorical(action):
         return action
 
 # def parse_d2_train_batch(data):
-#     b, t = data['reward'].shape
+#     b, t = data['reset'].shape
 #     n = b * t
 #     i_batch, i_step = np.indices((b, t))
 #     i_batch_step = i_batch * 1000 + i_step
@@ -98,17 +98,22 @@ def parse_d2_batch(data, take_episodes=10):
     if data['image'].shape[-1] == 1:
         # Backwards-compatibility (7,7,1) => (7,7)
         data['image'] = data['image'][..., 0]
+    
+    if len(data['reward'].shape) == 3:
+        # Categorical reward
+        data['reward'] = np.argmax(data['reward'], -1)
 
-    nans = np.full((data['reward'].shape), np.nan)
+    nans = np.full((data['reset'].shape), np.nan)
     noimg = np.zeros_like(data['image'])
 
-    return dict(
+    ret = dict(
         step=flatten(i_batch_step),
         episode=flatten(i_batch),
         episode_step=flatten(i_step),
         #
         action=flatten(data['action']).argmax(axis=-1),
         reward=flatten(data['reward']),
+        vecnovel=flatten(data.get('vecnovel', nans)),
         reset=flatten(data.get('reset', nans)),
         terminal=flatten(data.get('terminal', nans)),
         image=flatten(data['image']),
@@ -141,6 +146,8 @@ def parse_d2_batch(data, take_episodes=10):
         value_advantage_gae=flatten(data.get('value_advantage_gae', nans)),
         value_weight=flatten(data.get('value_weight', nans)),
     )
+    ret.update({'return': return_cumulative(ret['reward'], ret['reset'])})
+    return ret
 
 
 def parse_d2_episodes(data):
@@ -155,13 +162,14 @@ def parse_d2_episodes(data):
         # Backwards-compatibility (7,7,1) => (7,7)
         data['image'] = data['image'][..., 0]
 
-    nans = np.full((data['reward'].shape), np.nan)
+    nans = np.full((data['reset'].shape), np.nan)
     noimg = np.zeros_like(data['image'])
 
     return dict(
         step=i_step,
         action=_action_categorical(data['action']),
         reward=data['reward'],
+        vecnovel=data.get('vecnovel', nans),
         image=data['image'],
         terminal=data.get('terminal', nans),
         reset=data.get('reset', nans),
