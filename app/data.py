@@ -389,8 +389,6 @@ class DataArtifacts(DataAbstract):
         else:
             parent_dir = None
 
-        if parent_dir == 'episodes' or parent_dir == 'episodes_eval':
-            parent_dir = parent_dir + '/0'  # HACK
         df = self._load_artifacts(run_id, parent_dir, self._is_dir)
         return df
 
@@ -400,12 +398,22 @@ class DataArtifacts(DataAbstract):
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
         if not dirs:
             artifacts = list(reversed(artifacts))  # Order newest-first
-        return pd.DataFrame({
+        df =  pd.DataFrame({
             'path': [f.path for f in artifacts],
             'name': [f.path.split('/')[-1] for f in artifacts],
             'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
             'is_dir': [f.is_dir for f in artifacts],
         })
+        if dirs:
+            # HACK: show /0 and /1 agent episodes
+            epmask = df['name'].str.startswith('episodes')
+            dff = df[epmask].copy()
+            df.loc[epmask, 'name'] = df.loc[epmask, 'name'] + '/0'
+            df.loc[epmask, 'path'] = df.loc[epmask, 'path'] + '/0'
+            dff['name'] = dff['name'] + '/1'
+            dff['path'] = dff['path'] + '/1'
+            df = pd.concat([df, dff])
+        return df
 
     def set_selected(self):
         cols = selected_columns(self.source)
