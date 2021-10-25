@@ -101,6 +101,12 @@
   <div id="loader_overlay">
     <div class="loader"></div>
   </div>
+  <script>
+    document.getElementById('loader_overlay').onclick = function () {
+      // Dismiss on click
+      document.getElementById('loader_overlay').style.display = 'none';
+    };
+  </script>
   {% block inner_body %}
   {% block contents %}
   {% for doc in docs %}
