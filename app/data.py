@@ -122,7 +122,7 @@ class DataRuns(DataAbstract):
     def load_data(self, experiment_ids, filter):
         experiment_ids = experiment_ids or DEFAULT_EXPERIMENT_IDS
         with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
-            df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
+            df: pd.DataFrame = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)  # type: ignore
         if len(df) == 0:
             return df
         df['id'] = df['run_id']
@@ -155,7 +155,6 @@ class DataRuns(DataAbstract):
                                                  'metrics.data/steps',
                                                  'metrics.agent/steps',
                                                  'metrics.train_replay_steps'])
-        df['agent_steps_x4'] = df['agent_steps'] * 4
         df['return'] = combine_columns(df, ['metrics.agent_eval/return_cum100',
                                             'metrics.agent/return_cum100',
                                             'metrics.agent_eval/return',
@@ -163,6 +162,11 @@ class DataRuns(DataAbstract):
                                             'metrics.train_return'])
         df['episode_length'] = combine_columns(df, ['metrics.agent/episode_length', 'metrics.train_length'])
         df['fps'] = combine_columns(df, ['metrics.train/fps', 'metrics.fps'])
+        if 'params.env_action_repeat' in df:
+            df['action_repeat'] = df['params.env_action_repeat'].astype(float).fillna(1.0)
+        else:
+            df['action_repeat'] = 1.0
+        df['env_steps'] = df['agent_steps'] * df['action_repeat']
 
         # Age/Duration metrics
         if 'metrics._timestamp' in df:
@@ -237,6 +241,7 @@ class DataMetricKeys(DataAbstract):
             df = df[df['metric'].isin(self.selected_keys)]
             self.source.selected.indices = df.index.to_list()  # type: ignore
 
+
 class DataRunParameters(DataAbstract):
     def __init__(self, callback, data_runs: DataRuns, datac_filter: DataControl, name='run_parameters'):
         self._data_runs = data_runs
@@ -268,32 +273,52 @@ class DataRunParameters(DataAbstract):
 
 
 class DataMetrics(DataAbstract):
-    def __init__(self, callback, callback_update, data_runs: DataRuns, data_keys: DataMetricKeys, datac_smoothing: DataControl, name='metrics'):
-        self._data_runs = data_runs
-        self._data_keys = data_keys
-        self._datac_smoothing = datac_smoothing
+    def __init__(self,
+                 callback,
+                 callback_update,
+                 data_runs: DataRuns,
+                 data_keys: DataMetricKeys,
+                 datac_smoothing: DataControl,
+                 datac_envsteps: DataControl,
+                 name='metrics'):
+        self.data_runs = data_runs
+        self.data_keys = data_keys
+        self.datac_smoothing = datac_smoothing
+        self.datac_envsteps = datac_envsteps
         super().__init__(callback, name, callback_update)
 
     def get_in_state(self):
         return (
-            self._data_runs.selected_run_ids,
-            self._data_keys.selected_keys or DEFAULT_METRICS,
-            self._datac_smoothing.value
+            self.data_runs.selected_run_ids,
+            self.data_keys.selected_keys or DEFAULT_METRICS,
+            self.datac_smoothing.value,
+            self.datac_envsteps.value,
         )
 
-    def load_data(self, run_ids, metrics, smoothing_n):
-        runs = self._data_runs.selected_run_df
+    def load_data(self, run_ids, metrics, smoothing_n, use_envsteps):
+        runs = self.data_runs.selected_run_df
         data = []
         i = 0
+        envsteps_x, envsteps_y = None, None
+
         for _, run in runs.iterrows():
-            run_id, run_name = run['id'], run['name']
+            run_id = run['id']
+            run_name = run['name']
+
+            if use_envsteps:
+                hist = mlflow_client.get_metric_history(str(run_id), 'train/data_steps')
+                hist.sort(key=lambda m: m.step)
+                envsteps_x = np.array([m.step for m in hist])
+                envsteps_y = np.array([m.value for m in hist]) * run['action_repeat']
+
             for metric in metrics:
                 with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
                     try:
-                        hist = mlflow_client.get_metric_history(run_id, metric)
+                        hist = mlflow_client.get_metric_history(str(run_id), metric)
                     except Exception as e:
                         hist = []
                         print(f'ERROR fetching mlflow: {e}')
+
                 if len(hist) > 0:
                     hist.sort(key=lambda m: m.timestamp)
                     xs = np.array([m.step for m in hist])
@@ -301,10 +326,24 @@ class DataMetrics(DataAbstract):
                     ts = ts / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
                     ys[np.isposinf(ys) | np.isneginf(ys)] = np.nan
+
+                    if use_envsteps:
+                        exs = []
+                        assert envsteps_x is not None and envsteps_y is not None
+                        # Lookup envsteps_y value for each x value
+                        for x in xs:  # This may be slow
+                            ix = np.where(x >= envsteps_x)[0]
+                            ix = ix[-1] if len(ix) > 0 else -1
+                            ex = envsteps_y[ix] if ix >= 0 else 0
+                            exs.append(ex)
+                        xs = np.array(exs)
+
                     if smoothing_n:
                         xs, ts, ys = self._apply_smoothing(xs, ts, ys, smoothing_n)
+
                     if len(xs) == 0:
                         continue
+
                     range_min, range_max = self._calc_y_range(ys)
                     range_min_log, range_max_log = self._calc_y_range_log(ys)
                     data.append({
@@ -398,7 +437,7 @@ class DataArtifacts(DataAbstract):
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
         if not dirs:
             artifacts = list(reversed(artifacts))  # Order newest-first
-        df =  pd.DataFrame({
+        df = pd.DataFrame({
             'path': [f.path for f in artifacts],
             'name': [f.path.split('/')[-1] for f in artifacts],
             'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
@@ -408,10 +447,10 @@ class DataArtifacts(DataAbstract):
             # HACK: show /0 and /1 agent episodes
             epmask = df['name'].str.startswith('episodes')
             dff = df[epmask].copy()
-            df.loc[epmask, 'name'] = df.loc[epmask, 'name'] + '/0'
-            df.loc[epmask, 'path'] = df.loc[epmask, 'path'] + '/0'
-            dff['name'] = dff['name'] + '/1'
-            dff['path'] = dff['path'] + '/1'
+            df.loc[epmask, 'name'] = df.loc[epmask, 'name'] + '/0'  # type: ignore
+            df.loc[epmask, 'path'] = df.loc[epmask, 'path'] + '/0'  # type: ignore
+            dff['name'] = dff['name'] + '/1'  # type: ignore
+            dff['path'] = dff['path'] + '/1'  # type: ignore
             df = pd.concat([df, dff])
         return df
 

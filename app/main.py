@@ -165,13 +165,14 @@ def create_app(doc):
     datac_keys_filter = DataControl(on_change, 'keys_filter', DEFAULT_FILTER)
     datac_runs_filter = DataControl(on_change, 'runs_filter', '')
     datac_smoothing = DataControl(on_change, 'smoothing', 0)
+    datac_envsteps = DataControl(on_change, 'envsteps', 0)
     datac_tabs = DataControl(on_change, 'tabs', DEFAULT_TAB)
 
     data_experiments = DataExperiments(on_change)
     data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
     data_params = DataRunParameters(on_change, data_runs, datac_keys_filter)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
-    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing)
+    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing, datac_envsteps)
     data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
     data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, 'artifacts')
 
@@ -246,13 +247,17 @@ def create_app(doc):
         columns=[
             TableColumn(field="experiment_name", title="exp", width=100),
             TableColumn(field="name", title="run", width=250),
+            # TableColumn(field="params.bc_prior_uniform", title="uf", width=60),
+            # TableColumn(field="params.entropy", title="ent", width=60),
+            # TableColumn(field="params.kl_weight", title="kl", width=60),
             TableColumn(field="age", title="age", width=60,
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
             TableColumn(field="metrics._step", title="step", formatter=NumberFormatter(format="0,0"), width=80),
-            TableColumn(field="agent_steps", title="agent_steps", formatter=NumberFormatter(format="0,0"), width=80),
+            TableColumn(field="env_steps", title="env_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.train/visit_memsize", title="memsize", formatter=NumberFormatter(format="0"), width=w),
             TableColumn(field="metrics.eval/logprob_img", title="logprob_img(eval)", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/loss_wm_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/loss_wm_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
@@ -404,7 +409,7 @@ def create_app(doc):
             TableColumn(field="terminal", formatter=fmt),
             # TableColumn(field="reward_rec", formatter=fmt),
             TableColumn(field="action_pred", formatter=fmt),
-            TableColumn(field="reward_pred", formatter=fmt),
+            TableColumn(field="reward_pred", formatter=NumberFormatter(format="0.[000]")),
             TableColumn(field="terminal_pred", formatter=fmt),
             # TableColumn(field="value_target", formatter=fmt),
             TableColumn(field="entropy_prior", formatter=fmt),
@@ -474,6 +479,12 @@ def create_app(doc):
                                  active=0)
     radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
     radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
+    
+    radio_envsteps = RadioGroup(name='X axis',
+                                labels=['Grad steps', 'Env steps'],
+                                active=0)
+    radio_envsteps.on_change('active', lambda attr, old, new: datac_envsteps.set(new))  # type: ignore
+    radio_envsteps.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     txt_metric_filter = TextInput(title="Filter:", width=350, value=datac_keys_filter.value)
     txt_metric_filter.on_change('value', lambda attr, old, new: datac_keys_filter.set(new))  # type: ignore
@@ -501,7 +512,10 @@ def create_app(doc):
                             Panel(title="Linear/Time", child=metrics_figures[2]),
                             Panel(title="Log/Time", child=metrics_figures[3]),
                         ]),
-                        radio_smoothing,
+                        layout([
+                            [radio_smoothing],
+                            [radio_envsteps],
+                        ]),
                     ],
                 ])),
                 Panel(title="Artifacts", child=layout([
