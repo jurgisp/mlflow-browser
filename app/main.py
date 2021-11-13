@@ -261,6 +261,7 @@ def create_app(doc):
             TableColumn(field="metrics.eval/logprob_img", title="logprob_img(eval)", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/loss_wm_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="metrics.train/loss_wm_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="env_steps_ratio", title="ratio", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0,0"), width=w),
             TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),

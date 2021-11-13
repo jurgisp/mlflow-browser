@@ -157,6 +157,8 @@ class DataRuns(DataAbstract):
                                                  'metrics.train_replay_steps'])
         df['return'] = combine_columns(df, ['metrics.agent_eval/return_cum100',
                                             'metrics.agent/return_cum100',
+                                            'metrics.agent_eval/return_cum',
+                                            'metrics.agent/return_cum',
                                             'metrics.agent_eval/return',
                                             'metrics.agent/return',
                                             'metrics.train_return'])
@@ -167,6 +169,7 @@ class DataRuns(DataAbstract):
         else:
             df['action_repeat'] = 1.0
         df['env_steps'] = df['agent_steps'] * df['action_repeat']
+        df['env_steps_ratio'] = df['env_steps'] / df['metrics._step']
 
         # Age/Duration metrics
         if 'metrics._timestamp' in df:
