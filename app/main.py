@@ -24,7 +24,7 @@ PLAY_DELAY = 0
 DEFAULT_TAB = 'metrics'
 TABLE_HEIGHT = 350
 
-SMOOTHING_OPTS = [0, 4, 10, 30, 100]
+SMOOTHING_OPTS = [0, 1, 4, 10, 30, 100]
 
 mlflow_client = MlflowClient()
 
@@ -164,7 +164,7 @@ def create_app(doc):
 
     datac_keys_filter = DataControl(on_change, 'keys_filter', DEFAULT_FILTER)
     datac_runs_filter = DataControl(on_change, 'runs_filter', '')
-    datac_smoothing = DataControl(on_change, 'smoothing', 0)
+    datac_smoothing = DataControl(on_change, 'smoothing', 1)
     datac_envsteps = DataControl(on_change, 'envsteps', 0)
     datac_tabs = DataControl(on_change, 'tabs', DEFAULT_TAB)
 
@@ -477,7 +477,7 @@ def create_app(doc):
 
     radio_smoothing = RadioGroup(name='Smoothing',
                                  labels=['No smoothing'] + [str(i) for i in SMOOTHING_OPTS[1:]],
-                                 active=0)
+                                 active=1)
     radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
     radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
     

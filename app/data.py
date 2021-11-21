@@ -325,7 +325,7 @@ class DataMetrics(DataAbstract):
                         print(f'ERROR fetching mlflow: {e}')
 
                 if len(hist) > 0:
-                    hist.sort(key=lambda m: m.timestamp)
+                    hist.sort(key=lambda m: (m.step, m.timestamp))
                     xs = np.array([m.step for m in hist])
                     ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
                     ts = ts / 3600  # Measure in hours
@@ -343,8 +343,10 @@ class DataMetrics(DataAbstract):
                             exs.append(ex)
                         xs = np.array(exs)
 
-                    if smoothing_n:
-                        xs, ts, ys = self._apply_smoothing(xs, ts, ys, smoothing_n)
+                    if smoothing_n == 1:
+                        xs, ts, ys = self._apply_smoothing_samex(xs, ts, ys)
+                    elif smoothing_n > 0:
+                        xs, ts, ys = self._apply_smoothing_bin(xs, ts, ys, smoothing_n)
 
                     if len(xs) == 0:
                         continue
@@ -373,7 +375,7 @@ class DataMetrics(DataAbstract):
     def set_selected(self):
         pass
 
-    def _apply_smoothing(self, xs, ts, ys, bin_size=10):
+    def _apply_smoothing_bin(self, xs, ts, ys, bin_size=10):
         # Drop last partial bin
         n = (len(xs) // bin_size) * bin_size
         # For each bin: last(xs), mean(ys), last(ts)
@@ -381,6 +383,14 @@ class DataMetrics(DataAbstract):
         ts = ts[:n].reshape(-1, bin_size)[:, -1]
         ys = ys[:n].reshape(-1, bin_size).mean(axis=1)
         return xs, ts, ys
+
+    def _apply_smoothing_samex(self, xs, ts, ys):
+        df = pd.DataFrame(dict(xs=xs, ts=ts, ys=ys))
+        df = df.groupby('xs').agg({'ts': 'last', 'ys': 'mean'}).reset_index()
+        return (
+            df['xs'].to_numpy(),
+            df['ts'].to_numpy(),
+            df['ys'].to_numpy())
 
     def _calc_y_range(self, ys, margin=0.05, include_zero=True):
         ys = ys[np.isfinite(ys)]
