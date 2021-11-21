@@ -136,7 +136,7 @@ def parse_d2_batch(data, take_episodes=10):
         loss_image=flatten(data.get('loss_image', nans)),
         loss_map=flatten(data.get('loss_map', nans)),
         acc_map=flatten(data.get('acc_map', nans) * 100.),
-        logprob_img=flatten(data.get('logprob_img', nans)),
+        logprob_image=flatten(data.get('logprob_image', nans)),
         entropy_prior=flatten(data.get('entropy_prior', nans)),
         entropy_post=flatten(data.get('entropy_post', nans)),
         #

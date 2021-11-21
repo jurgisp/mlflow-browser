@@ -120,7 +120,7 @@ class DataRuns(DataAbstract):
         return (self._data_experiments.selected_experiment_ids, self._datac_filter.value)
 
     def load_data(self, experiment_ids, filter):
-        experiment_ids = experiment_ids or DEFAULT_EXPERIMENT_IDS
+        experiment_ids = [str(x) for x in experiment_ids or DEFAULT_EXPERIMENT_IDS]
         with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
             df: pd.DataFrame = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)  # type: ignore
         if len(df) == 0:
@@ -168,6 +168,8 @@ class DataRuns(DataAbstract):
             df['action_repeat'] = df['params.env_action_repeat'].astype(float).fillna(1.0)
         else:
             df['action_repeat'] = 1.0
+        if 'metrics._step' not in df:
+            df['metrics._step'] = 0.0
         df['env_steps'] = df['agent_steps'] * df['action_repeat']
         df['env_steps_ratio'] = df['env_steps'] / df['metrics._step']
 

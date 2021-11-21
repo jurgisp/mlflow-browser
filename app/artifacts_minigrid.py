@@ -9,7 +9,7 @@ from tools import Timer
 
 CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
     gym.make('MiniGrid-Empty-8x8-v0'),
-    restrict_types=['basic', 'agent']  # TODO: this can vary, depending on setup
+    restrict_types=['basic', 'agent', 'box']  # TODO: this can vary, depending on setup
 ).possible_objects
 
 
