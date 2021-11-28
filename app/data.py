@@ -19,6 +19,8 @@ DEFAULT_METRICS = []
 # DEFAULT_FILTER = 'train/, agent/'
 DEFAULT_FILTER = ''
 
+INF = 1e20  # Ignore higher metric values as infinity
+
 DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
@@ -330,18 +332,21 @@ class DataMetrics(DataAbstract):
                     ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
                     ts = ts / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
-                    ys[np.isposinf(ys) | np.isneginf(ys)] = np.nan
+                    ys[np.greater(np.abs(ys), INF)] = np.nan
 
                     if use_envsteps:
-                        exs = []
                         assert envsteps_x is not None and envsteps_y is not None
-                        # Lookup envsteps_y value for each x value
-                        for x in xs:  # This may be slow
-                            ix = np.where(x >= envsteps_x)[0]
-                            ix = ix[-1] if len(ix) > 0 else -1
-                            ex = envsteps_y[ix] if ix >= 0 else 0
-                            exs.append(ex)
-                        xs = np.array(exs)
+                        if len(envsteps_x) > 0:
+                            # Lookup envsteps_y value for each x value
+                            exs = []
+                            for x in xs:  # This may be slow
+                                ix = np.where(x >= envsteps_x)[0]
+                                ix = ix[-1] if len(ix) > 0 else -1
+                                ex = envsteps_y[ix] if ix >= 0 else 0
+                                exs.append(ex)
+                            xs = np.array(exs)
+                        else:
+                            print('WARN: no explicit env_steps, fallback to steps')
 
                     if smoothing_n == 1:
                         xs, ts, ys = self._apply_smoothing_samex(xs, ts, ys)
