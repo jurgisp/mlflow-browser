@@ -222,7 +222,7 @@ class DataMetricKeys(DataAbstract):
         filters = [f.strip() for f in filter.split(',') if f.strip() != ''] if filter else []  # If "filter1, filter2" allow any one of matches
         for col in sorted(runs_df.columns):
             if col.startswith('metrics.'):
-                metrics_key = col.split('.')[1]
+                metrics_key = col.split('.', 1)[1]
                 if not filters or any([f in metrics_key for f in filters]):
                     vals = runs_df[col].to_list()
                     if not all([v is None or np.isnan(v) for v in vals]):
@@ -266,7 +266,7 @@ class DataRunParameters(DataAbstract):
         filters = [f.strip() for f in filter.split(',') if f.strip() != ''] if filter else []  # If "filter1, filter2" allow any one of matches
         for col in sorted(runs_df.columns):
             if col.startswith('params.'):
-                param_key = col.split('.')[1]
+                param_key = col.split('.', 1)[1]
                 if not filters or any([f in param_key for f in filters]):
                     vals = runs_df[col].to_list()
                     if any(vals):
