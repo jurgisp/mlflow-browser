@@ -15,7 +15,10 @@ CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
 
 def rotation(ang):
     ang = np.radians(ang)
-    return np.array(((np.cos(ang), -np.sin(ang)), (np.sin(ang), np.cos(ang))))
+    return np.array((
+        (np.cos(ang), -np.sin(ang)),   # type: ignore
+        (np.sin(ang), np.cos(ang))
+    ))
 
 
 def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, tile_size=16):

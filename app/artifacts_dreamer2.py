@@ -5,6 +5,8 @@ DISCOUNT_GAMMA = 0.99
 
 
 def flatten(x):
+    if x is None:
+        return x
     return x.reshape([-1] + list(x.shape[2:]))
 
 
@@ -120,8 +122,8 @@ def parse_d2_batch(data, take_episodes=10):
         map_agent=flatten(data.get('map_agent', noimg)),
         # map_centered=flatten(data.get('map_centered', noimg)),
         map=flatten(data.get('map', noimg)),
-        agent_pos=flatten(data.get('agent_pos', nans)),
-        agent_dir=flatten(data.get('agent_dir', nans)),
+        agent_pos=flatten(data.get('agent_pos')),
+        agent_dir=flatten(data.get('agent_dir')),
         #
         image_rec=flatten(data.get('image_rec_p', data.get('image_rec', noimg))),
         map_rec=flatten(data.get('map_rec_p', data.get('map_rec', noimg))),
@@ -147,6 +149,8 @@ def parse_d2_batch(data, take_episodes=10):
         value_weight=flatten(data.get('value_weight', nans)),
     )
     ret.update({'return': return_cumulative(ret['reward'], ret['reset'])})
+    
+    ret = {k: v for k, v in ret.items() if v is not None}  # Remove Nones
     return ret
 
 
