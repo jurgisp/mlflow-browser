@@ -127,6 +127,13 @@ def load_frame(step_data=None,
             img = artifacts_minigrid.render_obs(obs)  # Try MiniGrid
         img = to_rgba(img)
         data[k] = [img]
+
+    if 'agent_pos' in sd and 'agent_dir' in sd:
+        # Re-render agent for maze3d
+        data['map_agent'] = [to_rgba(artifacts_minigrid.render_obs(sd['map'],
+                                                                   agent_pos=sd['agent_pos'],
+                                                                   agent_dir=sd['agent_dir'],
+                                                                   ))]
     return data
 
 

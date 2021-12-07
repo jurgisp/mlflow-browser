@@ -13,15 +13,51 @@ CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
 ).possible_objects
 
 
-def render_obs(obs, tile_size=16):
+def rotation(ang):
+    ang = np.radians(ang)
+    return np.array(((np.cos(ang), -np.sin(ang)), (np.sin(ang), np.cos(ang))))
+
+
+def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, tile_size=16):
+    import skimage.draw
+
+    def draw_line(img, p1, p2):
+        x1, y1 = p1
+        x2, y2 = p2
+        ly, lx, val = skimage.draw.line_aa(int(16 * y1), int(16 * x1), int(16 * y2), int(16 * x2))
+        img[ly, lx] = np.clip(img[ly, lx] + val[:, None] * np.array([255, 0, 0]), 0, 255)
+
+    def draw_triangle(img, p1, p2, p3):
+        triangle = np.array([p1, p2, p3])
+        ly, lx = skimage.draw.polygon(triangle[:, 1] * 16, triangle[:, 0] * 16)
+        img[ly, lx] = np.array([255, 0, 0])
+
     if obs is None:
         obs = np.zeros((7, 7), dtype=int)
 
     # (N,N) - sampled frame
     if len(obs.shape) == 2 and obs.shape[0] == obs.shape[1] and np.issubdtype(obs.dtype, np.integer):
         if obs.shape == (7, 7):
+            # mark agent position on observation
             obs[3, 6] = 7
-        return _render_obs(obs)
+
+        img = _render_obs(obs)
+
+        if trajectory and len(trajectory) > 1:
+            # draw trajectory
+            for i in range(1, len(trajectory)):
+                draw_line(img, trajectory[i - 1], trajectory[i])
+
+        if agent_pos is not None:
+            # draw agent for maze3d
+            pos = np.array(agent_pos)
+            dir = np.array(agent_dir)
+            draw_triangle(img,
+                          pos + 0.4 * dir,
+                          pos + 0.3 * rotation(120) @ dir,
+                          pos + 0.3 * rotation(240) @ dir)
+
+        return img
 
     # (N,N,C) - probabilities
     if len(obs.shape) == 3 and obs.shape[0] == obs.shape[1] and not np.issubdtype(obs.dtype, np.integer):
@@ -29,7 +65,7 @@ def render_obs(obs, tile_size=16):
         for i in range(obs.shape[-1]):
             # Combine image filled by each category according to prob weights
             # TODO: this doesn't work for drawing agent, because _render_obs() can not fill the image with agents in each cell
-            img_cat = _render_obs(np.full(obs.shape[:2], i), tile_size=tile_size)
+            img_cat = _render_obs(np.full(obs.shape[: 2], i), tile_size=tile_size)
             weight_cat = np.repeat(np.repeat(obs[..., i].T, tile_size, axis=0), tile_size, axis=1)
             if img is None:
                 img = np.zeros(img_cat.shape)
@@ -63,7 +99,7 @@ def _map_centric_to_global(map, agent_pos, agent_dir, size):
     map = np.rot90(map, (agent_dir + 1))
     mid = (map.shape[0] - 1) // 2
     top_x, top_y = mid - agent_pos[0], mid - agent_pos[1]
-    map = map[top_x:top_x + size[0], top_y:top_y + size[0]]
+    map = map[top_x: top_x + size[0], top_y: top_y + size[0]]
     return map
 
 
@@ -76,6 +112,6 @@ def map_centric_to_global_rgb(map, agent_pos, agent_dir, size):
     max_x = int(map.shape[0] - res * agent_pos[0])
     min_y = int(map.shape[1] / 2 - res * agent_pos[1])
     max_y = int(map.shape[1] - res * agent_pos[1])
-    map = map[min_y:max_y, min_x:max_x]
+    map = map[min_y: max_y, min_x: max_x]
 
     return map
