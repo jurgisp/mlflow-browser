@@ -5,6 +5,7 @@ import skimage.transform as skt
 import gym
 import gym_minigrid
 import gym_minigrid.wrappers
+import gym_minigrid.minigrid
 from tools import Timer
 
 CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
@@ -12,6 +13,7 @@ CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
     restrict_types=['basic', 'agent', 'box']  # TODO: this can vary, depending on setup
 ).possible_objects
 
+COLORS = list(gym_minigrid.minigrid.COLORS.values())
 
 def rotation(ang):
     ang = np.radians(ang)
@@ -20,8 +22,15 @@ def rotation(ang):
         (np.sin(ang), np.cos(ang))
     ))
 
+def rotation_dir(dir):
+    assert len(dir) == 2
+    return np.array((
+        (dir[0], -dir[1]),
+        (dir[1], dir[0])
+    ))
 
-def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, tile_size=16):
+
+def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, goals_pos=None, tile_size=16):
     import skimage.draw
 
     def draw_line(img, p1, p2):
@@ -32,8 +41,12 @@ def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, tile_size=1
 
     def draw_triangle(img, p1, p2, p3):
         triangle = np.array([p1, p2, p3])
-        ly, lx = skimage.draw.polygon(triangle[:, 1] * 16, triangle[:, 0] * 16)
+        ly, lx = skimage.draw.polygon(triangle[:, 1] * 16, triangle[:, 0] * 16, shape=img.shape)
         img[ly, lx] = np.array([255, 0, 0])
+
+    def draw_circle(img, p, radius=3, color=[255, 0, 0]):
+        ly, lx = skimage.draw.disk((p[1] * 16, p[0] * 16), radius, shape=img.shape)
+        img[ly, lx] = np.array(color)
 
     if obs is None:
         obs = np.zeros((7, 7), dtype=int)
@@ -59,6 +72,11 @@ def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, tile_size=1
                           pos + 0.4 * dir,
                           pos + 0.3 * rotation(120) @ dir,
                           pos + 0.3 * rotation(240) @ dir)
+
+        if goals_pos is not None:
+            # draw goal predictions
+            for i, goal_pos in enumerate(goals_pos):
+                draw_circle(img, goal_pos, color=COLORS[i])
 
         return img
 

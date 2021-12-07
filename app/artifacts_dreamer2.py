@@ -124,9 +124,13 @@ def parse_d2_batch(data, take_episodes=10):
         map=flatten(data.get('map', noimg)),
         agent_pos=flatten(data.get('agent_pos')),
         agent_dir=flatten(data.get('agent_dir')),
+        goal_direction=flatten(data.get('goal_direction')),
+        goals_direction=flatten(data.get('goals_direction')),
         #
         image_rec=flatten(data.get('image_rec_p', data.get('image_rec', noimg))),
         map_rec=flatten(data.get('map_rec_p', data.get('map_rec', noimg))),
+        goal_direction_pred=flatten(data.get('goal_direction_pred')),
+        goals_direction_pred=flatten(data.get('goals_direction_pred')),
         #
         image_pred=flatten(data.get('image_pred_p', data.get('image_pred', noimg))),
         reward_pred=flatten(data.get('reward_pred', nans)),

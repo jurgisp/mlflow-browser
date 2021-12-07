@@ -16,6 +16,7 @@ from .data import *
 
 import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
+from artifacts_minigrid import rotation_dir
 
 
 PLAY_INTERVAL = 100
@@ -130,10 +131,25 @@ def load_frame(step_data=None,
 
     if 'agent_pos' in sd and 'agent_dir' in sd:
         # Re-render agent for maze3d
-        data['map_agent'] = [to_rgba(artifacts_minigrid.render_obs(sd['map'],
-                                                                   agent_pos=sd['agent_pos'],
-                                                                   agent_dir=sd['agent_dir'],
-                                                                   ))]
+        data['map_agent'] = [to_rgba(artifacts_minigrid.render_obs(
+            sd['map'],
+            agent_pos=sd['agent_pos'],
+            agent_dir=sd['agent_dir'],
+        ))]
+    if 'goals_direction_pred' in sd and 'agent_pos' in sd and 'agent_dir' in sd:
+        # Draw goal prediction
+        goals_direction = sd['goals_direction_pred'].reshape((-1, 2))
+        goals_pos = []
+        for gd in goals_direction:
+            if np.any(np.abs(gd) > 1e-3):
+                goals_pos.append(sd['agent_pos'] + rotation_dir(sd['agent_dir']) @ gd)
+        data['map_rec'] = [to_rgba(artifacts_minigrid.render_obs(
+            sd['map'],
+            agent_pos=sd['agent_pos'],
+            agent_dir=sd['agent_dir'],
+            goals_pos=goals_pos
+        ))]
+
     return data
 
 
