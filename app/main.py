@@ -503,7 +503,7 @@ def create_app(doc):
                                  active=1)
     radio_smoothing.on_change('active', lambda attr, old, new: datac_smoothing.set(SMOOTHING_OPTS[new]))  # type: ignore
     radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
-    
+
     radio_envsteps = RadioGroup(name='X axis',
                                 labels=['Grad steps', 'Env steps'],
                                 active=0)
@@ -532,9 +532,9 @@ def create_app(doc):
                         ]),
                         Tabs(active=0, tabs=[
                             Panel(title="Linear/Steps", child=metrics_figures[0]),
-                            Panel(title="Log/Steps", child=metrics_figures[1]),
+                            # Panel(title="Log/Steps", child=metrics_figures[1]),
                             Panel(title="Linear/Time", child=metrics_figures[2]),
-                            Panel(title="Log/Time", child=metrics_figures[3]),
+                            # Panel(title="Log/Time", child=metrics_figures[3]),
                         ]),
                         layout([
                             [radio_smoothing],
