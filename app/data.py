@@ -153,35 +153,55 @@ class DataRuns(DataAbstract):
             return res if res is not None else np.nan
 
         # Hacky unified metrics
-        df['agent_steps'] = combine_columns(df, ['metrics.train/data_steps',
-                                                 'metrics.data/steps',
-                                                 'metrics.agent/steps',
-                                                 'metrics.train_replay_steps'])
-        df['return'] = combine_columns(df, ['metrics.agent_eval/return_cum100',
-                                            'metrics.agent/return_cum100',
-                                            'metrics.agent_eval/return_cum',
-                                            'metrics.agent/return_cum',
-                                            'metrics.agent_eval/return',
-                                            'metrics.agent/return',
-                                            'metrics.train_return'])
-        df['episode_length'] = combine_columns(df, ['metrics.agent/episode_length', 'metrics.train_length'])
-        df['fps'] = combine_columns(df, ['metrics.train/fps', 'metrics.fps'])
+
+        df['agent_steps'] = combine_columns(df, [
+            'metrics.agent_timesteps_total',  # Ray
+            'metrics.train/data_steps',
+            'metrics.data/steps',
+            'metrics.agent/steps',
+            'metrics.train_replay_steps',
+            'metrics.train_replay_steps',
+        ])
+        df['grad_steps'] = combine_columns(df, [
+            'metrics.training_iteration',  # Ray
+            'metrics._step'
+        ])
+        df['return'] = combine_columns(df, [
+            'metrics.episode_reward_mean',  # Ray
+            'metrics.agent_eval/return_cum100',
+            'metrics.agent/return_cum100',
+            'metrics.agent_eval/return_cum',
+            'metrics.agent/return_cum',
+            'metrics.agent_eval/return',
+            'metrics.agent/return',
+            'metrics.train_return'
+        ])
+        df['episode_length'] = combine_columns(df, [
+            'metrics.episode_len_mean',  # Ray
+            'metrics.agent/episode_length',
+            'metrics.train_length',
+        ])
+        df['fps'] = combine_columns(df, [
+            'metrics.train/fps',
+            'metrics.fps'
+        ])
+        if 'metrics.time_this_iter_s' in df:
+            df['fps'] = 1.0 / df['metrics.time_this_iter_s']  # Ray
+        
         if 'params.env_action_repeat' in df:
             df['action_repeat'] = df['params.env_action_repeat'].astype(float).fillna(1.0)
         else:
             df['action_repeat'] = 1.0
-        if 'metrics._step' not in df:
-            df['metrics._step'] = 0.0
         df['env_steps'] = df['agent_steps'] * df['action_repeat']
-        df['env_steps_ratio'] = df['env_steps'] / df['metrics._step']
+        df['env_steps_ratio'] = df['env_steps'] / df['grad_steps']
 
         # Age/Duration metrics
-        if 'metrics._timestamp' in df:
-            df['age_seconds'] = (datetime.now().timestamp() - df['metrics._timestamp'])
-            df['duration_seconds'] = df['metrics._timestamp'] - df['start_time'].view(int) / 1e9
-        else:
-            df['age_seconds'] = np.nan
-            df['duration_seconds'] = np.nan
+        df['timestamp'] = combine_columns(df, [
+            'metrics._timestamp',
+            'metrics.timestamp'
+        ])
+        df['age_seconds'] = (datetime.now().timestamp() - df['timestamp'])
+        df['duration_seconds'] = df['timestamp'] - df['start_time'].view(int) / 1e9
         df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
         df['duration'] = df['duration_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a > 0 else '')
 
