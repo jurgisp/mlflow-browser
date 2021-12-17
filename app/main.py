@@ -252,10 +252,10 @@ def create_app(doc):
     experiments_table = DataTable(
         source=data_experiments.source,
         columns=[
-            TableColumn(field="name", width=200),
+            TableColumn(field="name", width=100),
             TableColumn(field="id", width=50),
         ],
-        width=300,
+        width=200,
         height=TABLE_HEIGHT,
         fit_columns=False,
         selectable=True,
@@ -282,18 +282,18 @@ def create_app(doc):
             TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/visit_memsize", title="memsize", formatter=NumberFormatter(format="0"), width=w),
             # TableColumn(field="metrics.eval/logprob_image", title="logprob_image(eval)", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.train/loss_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
+            # TableColumn(field="metrics.train/loss_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/loss_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
+            # TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="env_steps_ratio", title="ratio(env/grad)", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0,0"), width=w),
-            TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
             # TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
             TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template=f"<a href='{mlflow_tracking_uri}/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
-        width=1050,
+        width=1150,
         height=TABLE_HEIGHT,
         fit_columns=False,
         selectable=True
@@ -303,13 +303,13 @@ def create_app(doc):
 
     params_table = DataTable(
         source=data_params.source,
-        columns=[TableColumn(field="param", width=120),
+        columns=[TableColumn(field="param", width=230),
                  TableColumn(field="value1", width=90,
                              formatter=HTMLTemplateFormatter(template="<span style='color:<%= diff_color %>'><%= value %></span>")),
                  TableColumn(field="value2", width=90,
                              formatter=HTMLTemplateFormatter(template="<span style='color:<%= diff_color %>'><%= value %></span>")),
                  ],
-        width=350,
+        width=450,
         height=600,
         fit_columns=False,
         selectable=True,
@@ -319,12 +319,12 @@ def create_app(doc):
 
     keys_table = DataTable(
         source=data_keys.source,
-        columns=[TableColumn(field="metric_prefix", title="prefix", width=50),
-                 TableColumn(field="metric_suffix", title="metric", width=120),
-                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0,0.[000]"), width=60),
-                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0,0.[000]"), width=60),
+        columns=[TableColumn(field="metric_prefix", title="prefix", width=100),
+                 TableColumn(field="metric_suffix", title="metric", width=170),
+                 TableColumn(field="value1", title="value1", formatter=NumberFormatter(format="0,0.[000]"), width=70),
+                 TableColumn(field="value2", title="value2", formatter=NumberFormatter(format="0,0.[000]"), width=70),
                  ],
-        width=350,
+        width=450,
         height=600,
         fit_columns=False,
         selectable=True,
@@ -338,7 +338,7 @@ def create_app(doc):
             p = figure(
                 x_axis_label=x_axis,
                 y_axis_label='value',
-                plot_width=1000,
+                plot_width=900,
                 plot_height=600,
                 tooltips=[
                     ("run", "@run"),
@@ -505,7 +505,7 @@ def create_app(doc):
     radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     radio_envsteps = RadioGroup(name='X axis',
-                                labels=['Grad steps', 'Env steps'],
+                                labels=['Log steps', 'Env steps'],
                                 active=0)
     radio_envsteps.on_change('active', lambda attr, old, new: datac_envsteps.set(new))  # type: ignore
     radio_envsteps.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
