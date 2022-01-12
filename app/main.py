@@ -277,19 +277,20 @@ def create_app(doc):
                         formatter=HTMLTemplateFormatter(template="<span style='color:<%= status_color %>'><%= value %></span>")),
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
+            TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="grad_steps", title="grad_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="env_steps", title="env_steps", formatter=NumberFormatter(format="0,0"), width=80),
-            TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="gps", title="gps", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/visit_memsize", title="memsize", formatter=NumberFormatter(format="0"), width=w),
             # TableColumn(field="metrics.eval/logprob_image", title="logprob_image(eval)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/loss_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/loss_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="env_steps_ratio", title="step_ratio", formatter=NumberFormatter(format="0"), width=w),
-            TableColumn(field="fps", title="fps", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0"), width=w),
             # TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
-            TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
+            # TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template=f"<a href='{mlflow_tracking_uri}/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
         ],
@@ -404,6 +405,7 @@ def create_app(doc):
     for i, (ifig, metric, visible) in enumerate([
         (0, 'loss_map', 1),
         (0, 'loss_kl', 1),
+        (0, 'loss_goal_direction', 1),
         (0, 'logprob_image', 0),
         (0, 'acc_map', 0),
         # ('entropy_prior', 1),
@@ -505,7 +507,7 @@ def create_app(doc):
     radio_smoothing.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
     radio_envsteps = RadioGroup(name='X axis',
-                                labels=['Log steps', 'Env steps'],
+                                labels=['Steps', 'Env steps'],
                                 active=0)
     radio_envsteps.on_change('active', lambda attr, old, new: datac_envsteps.set(new))  # type: ignore
     radio_envsteps.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore

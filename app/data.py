@@ -13,7 +13,7 @@ from .tools import *
 
 MAX_RUNS = 500
 RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
-FAILED_DURATION = 90 * 60  # mark as failed if shorter than this
+FAILED_DURATION = 60 * 60  # mark as failed if shorter than this
 # DEFAULT_METRICS = ['_loss']
 DEFAULT_METRICS = []
 # DEFAULT_FILTER = 'train/, agent/'
@@ -164,10 +164,13 @@ class DataRuns(DataAbstract):
         ])
         df['grad_steps'] = combine_columns(df, [
             'metrics.training_iteration',  # Ray
+            'metrics.train_steps',
+            'metrics.grad_steps',
             'metrics._step'
         ])
         df['return'] = combine_columns(df, [
             'metrics.episode_reward_mean',  # Ray
+            'metrics.episode_reward',
             'metrics.agent_eval/return_cum100',
             'metrics.agent/return_cum100',
             'metrics.agent_eval/return_cum',
@@ -181,18 +184,16 @@ class DataRuns(DataAbstract):
             'metrics.agent/episode_length',
             'metrics.train_length',
         ])
-        df['fps'] = combine_columns(df, [
-            'metrics.train/fps',
-            'metrics.fps'
-        ])
-        if 'metrics.time_this_iter_s' in df:
-            df['fps'] = 1.0 / df['metrics.time_this_iter_s']  # Ray
         
         if 'params.env_action_repeat' in df:
             df['action_repeat'] = df['params.env_action_repeat'].astype(float).fillna(1.0)
         else:
             df['action_repeat'] = 1.0
-        df['env_steps'] = df['agent_steps'] * df['action_repeat']
+        df['_env_steps'] = df['agent_steps'] * df['action_repeat']
+        df['env_steps'] = combine_columns(df, [
+            'metrics.env_steps',
+            '_env_steps'
+        ])
         df['env_steps_ratio'] = df['env_steps'] / df['grad_steps']
 
         # Age/Duration metrics
@@ -202,6 +203,8 @@ class DataRuns(DataAbstract):
         ])
         df['age_seconds'] = (datetime.now().timestamp() - df['timestamp'])
         df['duration_seconds'] = df['timestamp'] - df['start_time'].view(int) / 1e9
+        df['fps'] = df['env_steps'] / df['duration_seconds']
+        df['gps'] = df['grad_steps'] / df['duration_seconds']
         df['age'] = df['age_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a < 86400 else f'{int(a/86400)} d' if a > 0 else '')
         df['duration'] = df['duration_seconds'].apply(lambda a: f'{int(a/60)} min' if a < 3600 else f'{int(a/3600)} h' if a > 0 else '')
 
