@@ -129,7 +129,7 @@ def load_frame(step_data=None,
         img = to_rgba(img)
         data[k] = [img]
 
-    if 'agent_pos' in sd and 'agent_dir' in sd:
+    if not 'agent_pos' in sd and 'agent_dir' in sd and not np.all(np.isnan(sd['agent_pos'])):
         # Re-render agent for maze3d
         data['map_agent'] = [to_rgba(artifacts_minigrid.render_obs(
             sd['map'],
