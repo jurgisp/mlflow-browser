@@ -2,12 +2,13 @@ import os
 from typing import Optional, Tuple
 from datetime import datetime
 from bokeh.models.callbacks import CustomJS
+from mlflow.tracking.client import MlflowClient
 import pandas as pd
 from bokeh.models import ColumnDataSource
 import mlflow
-from mlflow.tracking import MlflowClient
 from bokeh.palettes import Category10_10
 
+from .mlflow_client import MlflowClientLoggingCaching
 from .tools import *
 
 
@@ -25,7 +26,7 @@ DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_ID
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
 
-mlflow_client = MlflowClient()
+mlflow_client = MlflowClientLoggingCaching()
 
 
 def dt_tolocal(col) -> pd.Series:
@@ -98,8 +99,7 @@ class DataExperiments(DataAbstract):
         super().__init__(callback, name)
 
     def load_data(self):
-        with Timer(f'mlflow.list_experiments()', verbose=True):
-            experiments = mlflow_client.list_experiments()
+        experiments = mlflow_client.list_experiments()
         df = pd.DataFrame([
             {'id': int(e.experiment_id), 'name': e.name}
             for e in experiments
@@ -310,11 +310,13 @@ class DataMetrics(DataAbstract):
                  data_keys: DataMetricKeys,
                  datac_smoothing: DataControl,
                  datac_envsteps: DataControl,
+                 mlflow: MlflowClient,
                  name='metrics'):
         self.data_runs = data_runs
         self.data_keys = data_keys
         self.datac_smoothing = datac_smoothing
         self.datac_envsteps = datac_envsteps
+        self.mlflow = mlflow
         super().__init__(callback, name, callback_update)
 
     def get_in_state(self):
@@ -336,19 +338,13 @@ class DataMetrics(DataAbstract):
             run_name = run['name']
 
             if use_envsteps:
-                hist = mlflow_client.get_metric_history(str(run_id), 'train/data_steps')
+                hist = self.mlflow.get_metric_history(str(run_id), 'train/data_steps')
                 hist.sort(key=lambda m: m.step)
                 envsteps_x = np.array([m.step for m in hist])
                 envsteps_y = np.array([m.value for m in hist]) * run['action_repeat']
 
             for metric in metrics:
-                with Timer(f'mlflow.get_metric_history({metric})', verbose=True):
-                    try:
-                        hist = mlflow_client.get_metric_history(str(run_id), metric)
-                    except Exception as e:
-                        hist = []
-                        print(f'ERROR fetching mlflow: {e}')
-
+                hist = self.mlflow.get_metric_history(str(run_id), metric)
                 if len(hist) > 0:
                     hist.sort(key=lambda m: (m.step, m.timestamp))
                     xs = np.array([m.step for m in hist])

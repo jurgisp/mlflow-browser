@@ -2,7 +2,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import mlflow
-from mlflow.tracking import MlflowClient
 
 import bokeh.plotting
 from bokeh.plotting import curdoc
@@ -13,6 +12,7 @@ from bokeh.palettes import Category10_10 as palette
 
 from .tools import *
 from .data import *
+from .mlflow_client import MlflowClientLoggingCaching
 
 import artifacts_dreamer2  # for handling app-specific artifacts
 import artifacts_minigrid
@@ -27,7 +27,7 @@ TABLE_HEIGHT = 350
 
 SMOOTHING_OPTS = [0, 1, 4, 10, 30, 100]
 
-mlflow_client = MlflowClient()
+mlclient = MlflowClientLoggingCaching()
 
 
 def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False, **kwargs):
@@ -47,15 +47,13 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
 
 
 def delete_run(run_id):
-    with Timer(f'mlflow.delete_run({run_id})', verbose=True):
-        mlflow_client.delete_run(run_id)
+    mlclient.delete_run(run_id)
 
 
 def load_artifacts(run_id=None, path=None, dirs=False):
     if run_id is None:
         return {}
-    with Timer(f'mlflow.list_artifacts({path})', verbose=True):
-        artifacts = mlflow_client.list_artifacts(run_id, path)
+    artifacts = mlclient.list_artifacts(run_id, path)
     artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
     if not dirs:
         artifacts = list(reversed(artifacts))  # Order newest-first
@@ -70,7 +68,7 @@ def load_artifacts(run_id=None, path=None, dirs=False):
 def load_artifact_steps(run_id, artifact_path):
     with Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
         if artifact_path.endswith('.npz'):
-            data = download_artifact_npz(mlflow_client, run_id, artifact_path)
+            data = download_artifact_npz(mlclient, run_id, artifact_path)
         else:
             print(f'Artifact extension not supported: {artifact_path}')
             return {}
@@ -166,6 +164,7 @@ def create_app(doc):
 
     def on_change(source, refresh=False):
         print(f'selected: {source}')
+        mlclient.clear_cache()
         data_experiments.update(refresh)
         data_runs.update(refresh)
         data_params.update(refresh)
@@ -195,7 +194,7 @@ def create_app(doc):
     data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
     data_params = DataRunParameters(on_change, data_runs, datac_keys_filter)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
-    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing, datac_envsteps)
+    data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing, datac_envsteps, mlclient)
     data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
     data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, 'artifacts')
 
