@@ -8,11 +8,11 @@ from bokeh.models import ColumnDataSource
 import mlflow
 from bokeh.palettes import Category10_10
 
-from .mlflow_client import MlflowClientLoggingCaching
+from app.mlflow_client import MlflowClientLogging
+
 from .tools import *
 
 
-MAX_RUNS = 500
 RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
 FAILED_DURATION = 60 * 60  # mark as failed if shorter than this
 # DEFAULT_METRICS = ['_loss']
@@ -25,8 +25,6 @@ INF = 1e20  # Ignore higher metric values as infinity
 DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
-
-mlflow_client = MlflowClientLoggingCaching()
 
 
 def dt_tolocal(col) -> pd.Series:
@@ -95,11 +93,12 @@ class DataAbstract:
 
 
 class DataExperiments(DataAbstract):
-    def __init__(self, callback, name='experiments'):
+    def __init__(self, callback, mlflow: MlflowClient, name='experiments'):
         super().__init__(callback, name)
+        self._mlflow = mlflow
 
     def load_data(self):
-        experiments = mlflow_client.list_experiments()
+        experiments = self._mlflow.list_experiments()
         df = pd.DataFrame([
             {'id': int(e.experiment_id), 'name': e.name}
             for e in experiments
@@ -113,9 +112,10 @@ class DataExperiments(DataAbstract):
 
 
 class DataRuns(DataAbstract):
-    def __init__(self, callback, data_experiments: DataExperiments, datac_filter: DataControl, name='runs'):
+    def __init__(self, callback, data_experiments: DataExperiments, datac_filter: DataControl, mlflow: MlflowClientLogging, name='runs'):
         self._data_experiments = data_experiments
         self._datac_filter = datac_filter
+        self._mlflow = mlflow
         super().__init__(callback, name)
 
     def get_in_state(self):
@@ -123,8 +123,8 @@ class DataRuns(DataAbstract):
 
     def load_data(self, experiment_ids, filter):
         experiment_ids = [str(x) for x in experiment_ids or DEFAULT_EXPERIMENT_IDS]
-        with Timer(f'mlflow.search_runs({experiment_ids})', verbose=True):
-            df: pd.DataFrame = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)  # type: ignore
+        df: pd.DataFrame = self._mlflow.search_runs(experiment_ids)
+        
         if len(df) == 0:
             return df
         df['id'] = df['run_id']
@@ -156,6 +156,7 @@ class DataRuns(DataAbstract):
 
         df['agent_steps'] = combine_columns(df, [
             'metrics.agent_timesteps_total',  # Ray
+            'metrics.time/total_timesteps',  # stable_baselines
             'metrics.train/data_steps',
             'metrics.data/steps',
             'metrics.agent/steps',
@@ -164,12 +165,14 @@ class DataRuns(DataAbstract):
         ])
         df['grad_steps'] = combine_columns(df, [
             'metrics.training_iteration',  # Ray
+            'metrics.time/iterations',  # stable_baselines
             'metrics.train_steps',
             'metrics.grad_steps',
             'metrics._step'
         ])
         df['return'] = combine_columns(df, [
             'metrics.episode_reward_mean',  # Ray
+            'metrics.rollout/ep_rew_mean',  # stable_baselines
             'metrics.episode_reward',
             'metrics.agent_eval/return_cum100',
             'metrics.agent/return_cum100',
@@ -316,7 +319,7 @@ class DataMetrics(DataAbstract):
         self.data_keys = data_keys
         self.datac_smoothing = datac_smoothing
         self.datac_envsteps = datac_envsteps
-        self.mlflow = mlflow
+        self._mlflow = mlflow
         super().__init__(callback, name, callback_update)
 
     def get_in_state(self):
@@ -338,13 +341,13 @@ class DataMetrics(DataAbstract):
             run_name = run['name']
 
             if use_envsteps:
-                hist = self.mlflow.get_metric_history(str(run_id), 'train/data_steps')
+                hist = self._mlflow.get_metric_history(str(run_id), 'train/data_steps')
                 hist.sort(key=lambda m: m.step)
                 envsteps_x = np.array([m.step for m in hist])
                 envsteps_y = np.array([m.value for m in hist]) * run['action_repeat']
 
             for metric in metrics:
-                hist = self.mlflow.get_metric_history(str(run_id), metric)
+                hist = self._mlflow.get_metric_history(str(run_id), metric)
                 if len(hist) > 0:
                     hist.sort(key=lambda m: (m.step, m.timestamp))
                     xs = np.array([m.step for m in hist])
@@ -441,11 +444,12 @@ class DataMetrics(DataAbstract):
 
 
 class DataArtifacts(DataAbstract):
-    def __init__(self, callback, data_runs: DataRuns, datac_tabs: DataControl, data_parent, is_dir: bool, name='artifacts'):
+    def __init__(self, callback, data_runs: DataRuns, datac_tabs: DataControl, data_parent, is_dir: bool, mlflow: MlflowClient, name='artifacts'):
         self._data_runs = data_runs
         self._datac_tabs = datac_tabs
         self._data_parent = data_parent
         self._is_dir = is_dir
+        self._mlflow = mlflow
         super().__init__(callback, name)
 
     def get_in_state(self):
@@ -471,8 +475,7 @@ class DataArtifacts(DataAbstract):
         return df
 
     def _load_artifacts(self, run_id, path, dirs):
-        with Timer(f'mlflow.list_artifacts({path})', verbose=True):
-            artifacts = mlflow_client.list_artifacts(run_id, path)
+        artifacts = self._mlflow.list_artifacts(run_id, path)
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
         if not dirs:
             artifacts = list(reversed(artifacts))  # Order newest-first

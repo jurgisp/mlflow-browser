@@ -46,10 +46,6 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     return fig
 
 
-def delete_run(run_id):
-    mlclient.delete_run(run_id)
-
-
 def load_artifacts(run_id=None, path=None, dirs=False):
     if run_id is None:
         return {}
@@ -164,7 +160,8 @@ def create_app(doc):
 
     def on_change(source, refresh=False):
         print(f'selected: {source}')
-        mlclient.clear_cache()
+        if refresh:
+            mlclient.clear_cache()
         data_experiments.update(refresh)
         data_runs.update(refresh)
         data_params.update(refresh)
@@ -175,6 +172,13 @@ def create_app(doc):
 
         if source == 'artifacts':
             artifact_selected(None, None, None)
+        
+        if source == 'runs':
+            # Set txt_rename to current name
+            if len(data_runs.selected_run_df) == 1:
+                txt_rename.value = data_runs.selected_run_df.iloc[0]['name']  # type: ignore
+            else:
+                txt_rename.value = ''  # type: ignore
 
         # Loader
         nonlocal progress_counter
@@ -190,13 +194,13 @@ def create_app(doc):
     datac_envsteps = DataControl(on_change, 'envsteps', 0)
     datac_tabs = DataControl(on_change, 'tabs', DEFAULT_TAB)
 
-    data_experiments = DataExperiments(on_change)
-    data_runs = DataRuns(on_change, data_experiments, datac_runs_filter)
+    data_experiments = DataExperiments(on_change, mlclient)
+    data_runs = DataRuns(on_change, data_experiments, datac_runs_filter, mlclient)
     data_params = DataRunParameters(on_change, data_runs, datac_keys_filter)
     data_keys = DataMetricKeys(on_change, data_runs, datac_keys_filter)
     data_metrics = DataMetrics(on_change, on_update, data_runs, data_keys, datac_smoothing, datac_envsteps, mlclient)
-    data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, 'artifacts_dir')
-    data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, 'artifacts')
+    data_artifacts_dir = DataArtifacts(on_change, data_runs, datac_tabs, None, True, mlclient, 'artifacts_dir')
+    data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, mlclient, 'artifacts')
 
     steps_source = ColumnDataSource(data={})
     frame_source = ColumnDataSource(data=load_frame())
@@ -222,9 +226,18 @@ def create_app(doc):
 
     # Data update
 
+    def rename_run_callback():
+        run_id = data_runs.selected_run_ids[0] if len(data_runs.selected_run_ids) == 1 else None
+        new_name = str(txt_rename.value).strip()
+        if run_id and new_name != '':
+            mlclient.rename_run(run_id, new_name)
+            on_change('rename_run', refresh=True)
+        else:
+            on_change('rename_run', refresh=False)
+
     def delete_run_callback():
         for run_id in data_runs.selected_run_ids:
-            delete_run(run_id)
+            mlclient.delete_run(run_id)
         on_change('delete_run', refresh=True)
 
     def update_steps():
@@ -484,6 +497,10 @@ def create_app(doc):
     btn_refresh.on_click(lambda _: refresh())
     btn_refresh.js_on_click(CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))
 
+    btn_rename = Button(label='Rename run', width=100)
+    btn_rename.on_click(lambda _: rename_run_callback())
+    btn_rename.js_on_click(CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))
+
     btn_delete = Button(label='Delete run', width=100)
     btn_delete.on_click(lambda _: delete_run_callback())
     btn_delete.js_on_click(CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))
@@ -519,6 +536,8 @@ def create_app(doc):
     txt_runs_filter.on_change('value', lambda attr, old, new: datac_runs_filter.set(new))  # type: ignore
     txt_runs_filter.js_on_change('value', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
+    txt_rename = TextInput(width=200)
+
     tabs = Tabs(active=1 if datac_tabs.value == 'artifacts' else 0, tabs=[
                 Panel(title="Metrics", child=layout([
                     [
@@ -551,7 +570,7 @@ def create_app(doc):
                                 layout([
                                     [artifact_steps_table],
                                     [
-                                        Tabs(active=1, tabs=[
+                                        Tabs(active=0, tabs=[
                                             Panel(title="Losses", child=steps_figures[0]),
                                             Panel(title="Rewards", child=steps_figures[1]),
                                         ])
@@ -579,8 +598,10 @@ def create_app(doc):
                 layouts.column([  # type: ignore
                     txt_runs_filter,
                     btn_refresh,
+                    btn_rename,
                     btn_delete,
-                    btn_play
+                    btn_play,
+                    txt_rename,
                 ]),
             ],
             [tabs],
