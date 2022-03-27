@@ -1,30 +1,37 @@
+# pyright: reportGeneralTypeIssues=false
 import os
-from typing import Optional, Tuple
 from datetime import datetime
-from bokeh.models.callbacks import CustomJS
-from mlflow.tracking.client import MlflowClient
+from typing import List, Optional, Tuple
+
+import mlflow
 import pandas as pd
 from bokeh.models import ColumnDataSource
-import mlflow
-from bokeh.palettes import Category10_10
+from bokeh.models.callbacks import CustomJS
+from bokeh.palettes import Category10_10, Greys3
+from mlflow.tracking.client import MlflowClient
 
 from app.mlflow_client import MlflowClientLogging
 
 from .tools import *
 
+pd.options.display.width = 0
+
 
 RUNNING_MAX_AGE = 5 * 60  # mark as running if age is smaller than this
 FAILED_DURATION = 60 * 60  # mark as failed if shorter than this
-# DEFAULT_METRICS = ['_loss']
-DEFAULT_METRICS = []
-# DEFAULT_FILTER = 'train/, agent/'
-DEFAULT_FILTER = ''
+
+DEFAULT_METRICS = [s.strip() for s in os.environ.get('DEFAULT_METRICS', '').split(',') if s != '']  # ['agent/return', 'return', 'train_return']
+DEFAULT_FILTER = os.environ.get('DEFAULT_FILTER', '')  # 'return, logprob, entropy, _loss'
+DEFAULT_EXPERIMENT_IDS = [int(s) for s in os.environ.get('DEFAULT_EXPERIMENT_IDS', '').split(',') if s != '']  # [21, 22]
+
+BASELINES_CSV = Path(__file__).parent / '../data/baselines.csv'
+METRICS_CACHE_CSV = Path(__file__).parent / '../.cache/metrics.csv'
 
 INF = 1e20  # Ignore higher metric values as infinity
 
-DEFAULT_EXPERIMENT_IDS = [int(s) for s in (os.environ.get('DEFAULT_EXPERIMENT_IDS') or '').split(',') if s != '']
 TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
+PALETTE_BASE = Greys3[:2]
 
 
 def dt_tolocal(col) -> pd.Series:
@@ -124,7 +131,7 @@ class DataRuns(DataAbstract):
     def load_data(self, experiment_ids, filter):
         experiment_ids = [str(x) for x in experiment_ids or DEFAULT_EXPERIMENT_IDS]
         df: pd.DataFrame = self._mlflow.search_runs(experiment_ids)
-        
+
         if len(df) == 0:
             return df
         df['id'] = df['run_id']
@@ -143,14 +150,12 @@ class DataRuns(DataAbstract):
         df = pd.merge(df, df_exp, how='left', on='experiment_id')
 
         def combine_columns(df, col_names):
-            res = None
+            df['_nan'] = np.nan
+            res = df['_nan']
             for col in col_names:
                 if col in df:
-                    if res is None:
-                        res = df[col]
-                    else:
-                        res = res.combine_first(df[col])
-            return res if res is not None else np.nan
+                    res = res.combine_first(df[col])
+            return res
 
         # Hacky unified metrics
 
@@ -168,7 +173,8 @@ class DataRuns(DataAbstract):
             'metrics.time/iterations',  # stable_baselines
             'metrics.train_steps',
             'metrics.grad_steps',
-            'metrics._step'
+            'metrics._step',
+            'metrics.step',
         ])
         df['return'] = combine_columns(df, [
             'metrics.episode_reward_mean',  # Ray
@@ -180,24 +186,35 @@ class DataRuns(DataAbstract):
             'metrics.agent/return_cum',
             'metrics.agent_eval/return',
             'metrics.agent/return',
-            'metrics.train_return'
+            'metrics.train_return',
+            'metrics.return'
         ])
         df['episode_length'] = combine_columns(df, [
             'metrics.episode_len_mean',  # Ray
             'metrics.agent/episode_length',
+            'metrics.actor0/length',
             'metrics.train_length',
         ])
+
+        df['action_repeat'] = combine_columns(df, [
+            'params.env_action_repeat',
+            'params.env.repeat',
+        ]).astype(float).fillna(1.0)
         
-        if 'params.env_action_repeat' in df:
-            df['action_repeat'] = df['params.env_action_repeat'].astype(float).fillna(1.0)
-        else:
-            df['action_repeat'] = 1.0
         df['_env_steps'] = df['agent_steps'] * df['action_repeat']
         df['env_steps'] = combine_columns(df, [
             'metrics.env_steps',
-            '_env_steps'
+            'metrics.actor0/env_steps',
+            'metrics.actor1/env_steps',
+            'metrics.actor2/env_steps',
+            '_env_steps',
         ])
         df['env_steps_ratio'] = df['env_steps'] / df['grad_steps']
+
+        # Env/task 
+        df['env'] = combine_columns(df, [
+            'params.env_id',
+        ])
 
         # Age/Duration metrics
         df['timestamp'] = combine_columns(df, [
@@ -326,33 +343,51 @@ class DataMetrics(DataAbstract):
         return (
             self.data_runs.selected_run_ids,
             self.data_keys.selected_keys or DEFAULT_METRICS,
+            ['*'],
             self.datac_smoothing.value,
             self.datac_envsteps.value,
         )
 
-    def load_data(self, run_ids, metrics, smoothing_n, use_envsteps):
+    def load_data(self,
+                  run_ids: List[str], 
+                  metrics: List[str], 
+                  baselines: List[str], 
+                  smoothing_n: int, 
+                  use_envsteps: int):
         runs = self.data_runs.selected_run_df
+        runs = runs.sort_values(['name', 'start_time'])
+
+        # Metrics
+
         data = []
-        i = 0
-        envsteps_x, envsteps_y = None, None
+        legends_used = set()
+        i_series = 0
 
         for _, run in runs.iterrows():
+            data_run = []
             run_id = run['id']
             run_name = run['name']
+            run_env = run['env']
 
+            envsteps_x, envsteps_y = None, None
             if use_envsteps:
-                hist = self._mlflow.get_metric_history(str(run_id), 'train/data_steps')
-                hist.sort(key=lambda m: m.step)
-                envsteps_x = np.array([m.step for m in hist])
-                envsteps_y = np.array([m.value for m in hist]) * run['action_repeat']
+                envsteps_column = None
+                for col in ['train/data_steps', 'replay/total_steps']:
+                    if f'metrics.{col}' in run and not pd.isna(run[f'metrics.{col}']):
+                        envsteps_column = col
+                if envsteps_column:
+                    hist = self._mlflow.get_metric_history(str(run_id), envsteps_column)
+                    if len(hist) > 0:
+                        hist.sort(key=lambda m: m.step)
+                        envsteps_x = np.array([m.step for m in hist])
+                        envsteps_y = np.array([m.value for m in hist]) * run['action_repeat']
 
             for metric in metrics:
                 hist = self._mlflow.get_metric_history(str(run_id), metric)
                 if len(hist) > 0:
                     hist.sort(key=lambda m: (m.step, m.timestamp))
                     xs = np.array([m.step for m in hist])
-                    ts = (np.array([m.timestamp for m in hist]) - hist[0].timestamp) / 1000  # Measure in seconds
-                    ts = ts / 3600  # Measure in hours
+                    ts = np.array([m.timestamp for m in hist]) / 1000 / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
                     ys[np.greater(np.abs(ys), INF)] = np.nan
 
@@ -378,25 +413,86 @@ class DataMetrics(DataAbstract):
                     if len(xs) == 0:
                         continue
 
+                    legend = f'{metric} [{run_name}]'
+                    if legend in legends_used:
+                        legend = f'{metric} [{run_name}] ({i_series})'
+                    legends_used.add(legend)
+
                     range_min, range_max = self._calc_y_range(ys)
                     range_min_log, range_max_log = self._calc_y_range_log(ys)
-                    data.append({
+                    data_run.append({
                         'run': run_name,
+                        'env': run_env,
                         'metric': metric,
-                        'legend': f'{metric} [{run_name}] ({i})' if len(runs) > 1 else f'{metric} [{run_name}]',
-                        'color': PALETTE[i % len(PALETTE)],
+                        'legend': legend,
+                        'color': PALETTE[i_series % len(PALETTE)],
+                        'line_dash': 'solid',
                         'steps': xs,
                         'time': ts,
-                        'values': ys,
+                        'values': ys,  # Note: this is np.array, if we convert to list, then we can't use nans
                         'range_min': range_min,
                         'range_max': range_max,
                         'range_min_log': range_min_log,
                         'range_max_log': range_max_log,
                         'steps_max': max(xs),
+                        'time_min': min(ts),
                         'time_max': max(ts),
                     })
-                i += 1
+                    i_series += 1
+
+            # Offset time origin
+
+            if len(data_run) > 0:
+                time_min = min(d['time_min'] for d in data_run)
+                for d in data_run:
+                    d['time'] -= time_min
+                    d['time_min'] -= time_min
+                    d['time_max'] -= time_min
+
+            data.extend(data_run)
+
+        # Baselines
+
+        if baselines and len(data) > 0 and 'return' in metrics:
+            envs = runs['env'].unique().tolist()
+            dfb = get_baselines(baselines, envs)
+            steps_max = max(d['steps_max'] for d in data)
+            time_max = max(d['time_max'] for d in data)
+            for i, row in dfb.iterrows():
+                metric = str(row['baseline'])
+                run_env = str(row['env'])
+                run_name = run_env.split('-', maxsplit=1)[-1]  # Drop DMM- prefix
+                val = float(row['return'])
+                data.append({
+                    'run': run_name,
+                    'env': run_env,
+                    'metric': metric,
+                    'legend': f'{metric} [{run_name}]',
+                    'color': PALETTE_BASE[i % len(PALETTE_BASE)],
+                    'line_dash': 'dashed',
+                    'steps': np.array([0, steps_max]),
+                    'time': np.array([0, time_max]),
+                    'values': np.array([val, val]),
+                    'range_min': val,
+                    'range_max': val,
+                    'range_min_log': val,
+                    'range_max_log': val,
+                    'steps_max': steps_max,
+                    'time_max': time_max,
+                })
+
         df = pd.DataFrame(data)
+        # print(df)
+
+        # Save CSV for plot/main.py
+        if len(df) > 0 and METRICS_CACHE_CSV:
+            dfcsv = df.copy()
+            # convert to list, because np.array doesn't serialize to CSV well
+            dfcsv['steps'] = dfcsv['steps'].apply(lambda x: x.tolist())
+            dfcsv['time'] = dfcsv['time'].apply(lambda x: x.tolist())
+            dfcsv['values'] = dfcsv['values'].apply(lambda x: x.tolist())
+            dfcsv.to_csv(str(METRICS_CACHE_CSV), index=False)
+        
         return df
 
     def set_selected(self):
@@ -475,6 +571,7 @@ class DataArtifacts(DataAbstract):
         return df
 
     def _load_artifacts(self, run_id, path, dirs):
+        print(f'artifact_uri: {self._data_runs.selected_run_df.iloc[0]["artifact_uri"]}')
         artifacts = self._mlflow.list_artifacts(run_id, path)
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
         if not dirs:
@@ -485,7 +582,7 @@ class DataArtifacts(DataAbstract):
             'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
             'is_dir': [f.is_dir for f in artifacts],
         })
-        if dirs:
+        if dirs and len(df) > 0:
             # HACK: show /0 and /1 agent episodes
             epmask = df['name'].str.startswith('episodes')
             dff = df[epmask].copy()
@@ -502,3 +599,11 @@ class DataArtifacts(DataAbstract):
 
     def reselect(self, is_refresh):
         self.source.selected.indices = []  # type: ignore
+
+
+def get_baselines(baselines: List[str], envs: List[str]) -> pd.DataFrame:
+    df = pd.read_csv(str(BASELINES_CSV))
+    if baselines != ['*']:
+        df = df[df['baseline'].isin(baselines)]
+    df = df[df['env'].isin(envs)]
+    return df.reset_index()

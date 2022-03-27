@@ -23,7 +23,7 @@ PLAY_INTERVAL = 100
 # PLAY_INTERVAL = 300
 PLAY_DELAY = 0
 DEFAULT_TAB = 'metrics'
-TABLE_HEIGHT = 350
+TABLE_HEIGHT = 300
 
 SMOOTHING_OPTS = [0, 1, 4, 10, 30, 100]
 
@@ -176,7 +176,7 @@ def create_app(doc):
         if source == 'runs':
             # Set txt_rename to current name
             if len(data_runs.selected_run_df) == 1:
-                txt_rename.value = data_runs.selected_run_df.iloc[0]['name']  # type: ignore
+                txt_rename.value = data_runs.selected_run_df.iloc[0]['name'] or ''  # type: ignore
             else:
                 txt_rename.value = ''  # type: ignore
 
@@ -281,8 +281,8 @@ def create_app(doc):
         source=data_runs.source,
         columns=[
             TableColumn(field="experiment_name", title="exp", width=100),
+            # TableColumn(field="params.resume_id", title="id", width=60),
             TableColumn(field="name", title="run", width=250),
-            # TableColumn(field="params.bc_prior_uniform", title="uf", width=60),
             # TableColumn(field="params.entropy", title="ent", width=60),
             # TableColumn(field="params.kl_weight", title="kl", width=60),
             TableColumn(field="age", title="age", width=60,
@@ -290,6 +290,7 @@ def create_app(doc):
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
             TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="grad_steps", title="grad_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="env_steps", title="env_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="gps", title="gps", formatter=NumberFormatter(format="0.00"), width=w),
@@ -298,13 +299,15 @@ def create_app(doc):
             # TableColumn(field="metrics.eval/logprob_image", title="logprob_image(eval)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/loss_image", title="loss_image(train)", formatter=NumberFormatter(format="0.00"), width=w),
             # TableColumn(field="metrics.train/loss_kl", title="loss_kl(train)", formatter=NumberFormatter(format="0.00"), width=w),
-            # TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.0"), width=w),
+            # TableColumn(field="action_repeat", title="action_repeat", formatter=NumberFormatter(format="0"), width=w),
             TableColumn(field="env_steps_ratio", title="step_ratio", formatter=NumberFormatter(format="0"), width=w),
             TableColumn(field="episode_length", title="ep_length", formatter=NumberFormatter(format="0"), width=w),
             # TableColumn(field="metrics.eval_full/acc_map", title="eval/acc_map", formatter=NumberFormatter(format="0.000"), width=w),
             # TableColumn(field="metrics.train/grad_norm", title="grad_norm", formatter=NumberFormatter(format="0.0"), width=w),
             TableColumn(field="run_id", title="id", width=40,
                         formatter=HTMLTemplateFormatter(template=f"<a href='{mlflow_tracking_uri}/#/experiments/<%= experiment_id %>/runs/<%= value %>' target='_blank'><%= value %></a>")),
+            # TableColumn(field="artifact_uri", title="artifact_uri", width=w),
+            # TableColumn(field="env", title="env", width=100),
         ],
         width=1150,
         height=TABLE_HEIGHT,
@@ -349,7 +352,7 @@ def create_app(doc):
     for x_axis in ['steps', 'time']:
         for y_axis_type in ['linear', 'log']:
             p = figure(
-                x_axis_label=x_axis,
+                x_axis_label='hours' if x_axis == 'time' else x_axis,
                 y_axis_label='value',
                 plot_width=900,
                 plot_height=600,
@@ -370,7 +373,8 @@ def create_app(doc):
                 color='color',
                 legend_field='legend',
                 line_width=2,
-                line_alpha=0.8)
+                line_alpha=0.8,
+                line_dash='line_dash')
             p.legend.location = 'top_left'
             metrics_figures.append(p)
 
@@ -524,7 +528,7 @@ def create_app(doc):
 
     radio_envsteps = RadioGroup(name='X axis',
                                 labels=['Steps', 'Env steps'],
-                                active=0)
+                                active=datac_envsteps.value)
     radio_envsteps.on_change('active', lambda attr, old, new: datac_envsteps.set(new))  # type: ignore
     radio_envsteps.js_on_change('active', CustomJS(code="document.getElementById('loader_overlay').style.display = 'initial'"))  # type: ignore
 
@@ -571,8 +575,8 @@ def create_app(doc):
                                     [artifact_steps_table],
                                     [
                                         Tabs(active=0, tabs=[
-                                            Panel(title="Losses", child=steps_figures[0]),
                                             Panel(title="Rewards", child=steps_figures[1]),
+                                            Panel(title="Losses", child=steps_figures[0]),
                                         ])
                                     ],
                                 ]),
@@ -598,10 +602,10 @@ def create_app(doc):
                 layouts.column([  # type: ignore
                     txt_runs_filter,
                     btn_refresh,
-                    btn_rename,
                     btn_delete,
                     btn_play,
                     txt_rename,
+                    btn_rename,
                 ]),
             ],
             [tabs],

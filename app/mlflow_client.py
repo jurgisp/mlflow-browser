@@ -65,7 +65,7 @@ class MlflowClientLoggingCaching(MlflowClientLogging):
         if res is None:
             res = super().search_runs(experiment_ids)
             self._cache_runs[tuple(experiment_ids)] = res
-        return res.copy()
+        return res.copy()  # type: ignore
 
     def clear_cache(self):
         self._cache_runs.clear()

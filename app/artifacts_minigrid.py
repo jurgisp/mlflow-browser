@@ -2,18 +2,23 @@
 
 import numpy as np
 import skimage.transform as skt
-import gym
-import gym_minigrid
-import gym_minigrid.wrappers
-import gym_minigrid.minigrid
-from tools import Timer
 
-CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
-    gym.make('MiniGrid-Empty-8x8-v0'),
-    restrict_types=['basic', 'agent', 'box']  # TODO: this can vary, depending on setup
-).possible_objects
+try:
+    import gym
+    import gym_minigrid
+    import gym_minigrid.wrappers
+    import gym_minigrid.minigrid
 
-COLORS = list(gym_minigrid.minigrid.COLORS.values())
+    CAT_TO_OBJ = gym_minigrid.wrappers.CategoricalObsWrapper(
+        gym.make('MiniGrid-Empty-8x8-v0'),
+        restrict_types=['basic', 'agent', 'box']  # TODO: this can vary, depending on setup
+    ).possible_objects
+
+    COLORS = list(gym_minigrid.minigrid.COLORS.values())
+
+except:
+    print('No gym_minigrid')
+
 
 def rotation(ang):
     ang = np.radians(ang)
@@ -91,6 +96,7 @@ def render_obs(obs, trajectory=None, agent_pos=None, agent_dir=None, goals_pos=N
             if img is None:
                 img = np.zeros(img_cat.shape)
             img += np.expand_dims(weight_cat, -1) * img_cat
+        assert img is not None
         return img.astype(np.uint8)
 
     assert False, f'Shape {obs.shape} ({obs.dtype}) not like MiniGrid'

@@ -3,5 +3,4 @@ _*
 !__init__.py
 !.gitignore
 
-data/
 mlruns/
