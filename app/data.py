@@ -355,7 +355,8 @@ class DataMetrics(DataAbstract):
                   smoothing_n: int, 
                   use_envsteps: int):
         runs = self.data_runs.selected_run_df
-        runs = runs.sort_values(['name', 'start_time'])
+        if len(runs) > 0:
+            runs = runs.sort_values(['name', 'start_time'])
 
         # Metrics
 
