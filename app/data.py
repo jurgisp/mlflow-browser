@@ -140,7 +140,7 @@ class DataRuns(DataAbstract):
 
         # filter
         if filter:
-            df = df[df['name'].str.contains(filter)]
+            df = df[df['name'].str.contains(filter).fillna(False)]
 
         # Experiment name
         df['experiment_id'] = df['experiment_id'].astype(int)  # type: ignore
