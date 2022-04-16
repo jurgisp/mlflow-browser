@@ -271,8 +271,8 @@ class DataMetricKeys(DataAbstract):
                     if not all([v is None or np.isnan(v) for v in vals]):
                         data.append({
                             'metric': metrics_key,
-                            'metric_prefix': '/'.join(metrics_key.split('/')[:-1]),  # train/loss => train
-                            'metric_suffix': metrics_key.split('/')[-1],  # train/loss => loss
+                            'metric_prefix': '/'.join(metrics_key.replace('.', '/').split('/')[:-1]),  # train/loss => train
+                            'metric_suffix': metrics_key.replace('.', '/').split('/')[-1],  # train/loss => loss
                             'value1': vals[0],
                             'value2': vals[1] if len(vals) >= 2 else np.nan,
                         })
