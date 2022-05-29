@@ -165,14 +165,17 @@ class DataRuns(DataAbstract):
             'metrics.train/data_steps',
             'metrics.data/steps',
             'metrics.agent/steps',
+            'metrics.replay/replay_step',
             'metrics.train_replay_steps',
-            'metrics.train_replay_steps',
+            'metrics._step',
+            'metrics.step',
         ])
         df['grad_steps'] = combine_columns(df, [
             'metrics.training_iteration',  # Ray
             'metrics.time/iterations',  # stable_baselines
             'metrics.train_steps',
             'metrics.grad_steps',
+            'metrics.train/model_grad_steps',
             'metrics._step',
             'metrics.step',
         ])
@@ -204,9 +207,9 @@ class DataRuns(DataAbstract):
         df['_env_steps'] = df['agent_steps'] * df['action_repeat']
         df['env_steps'] = combine_columns(df, [
             'metrics.env_steps',
-            'metrics.actor0/env_steps',
-            'metrics.actor1/env_steps',
-            'metrics.actor2/env_steps',
+            # 'metrics.actor0/env_steps',
+            # 'metrics.actor1/env_steps',
+            # 'metrics.actor2/env_steps',
             '_env_steps',
         ])
         df['env_steps_ratio'] = df['env_steps'] / df['grad_steps']
@@ -357,6 +360,7 @@ class DataMetrics(DataAbstract):
         runs = self.data_runs.selected_run_df
         if len(runs) > 0:
             runs = runs.sort_values(['name', 'start_time'])
+        metrics = sorted(metrics)
 
         # Metrics
 
@@ -373,7 +377,7 @@ class DataMetrics(DataAbstract):
             envsteps_x, envsteps_y = None, None
             if use_envsteps:
                 envsteps_column = None
-                for col in ['train/data_steps', 'replay/total_steps']:
+                for col in ['train/data_steps', 'replay/replay_step', 'env_steps']:
                     if f'metrics.{col}' in run and not pd.isna(run[f'metrics.{col}']):
                         envsteps_column = col
                 if envsteps_column:
