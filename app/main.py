@@ -428,12 +428,13 @@ def create_app(doc):
         # ('entropy_prior', 1),
         # ('entropy_post', 1),
         (1, 'value', 1),
-        (1, 'value_target', 0),
+        (1, 'value_target', 1),
+        (1, 'value_aux', 0),
         (1, 'return_discounted', 0),
         (1, 'return', 1),
-        (1, 'reward', 1),
+        (1, 'reward', 0),
         (1, 'reward_pred', 1),
-        (1, 'vecnovel', 1),
+        (1, 'vecnovel', 0),
     ]):
         fig = steps_figures[ifig]
         fig.line(x='step', y=metric, source=steps_source, color=palette[i % len(palette)], legend_label=metric, nonselection_alpha=1, visible=visible == 1)

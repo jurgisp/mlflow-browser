@@ -119,6 +119,7 @@ def parse_d2_batch(data, take_episodes=10):
         value_advantage=flatten(data.get('value_advantage', nans)),
         value_advantage_gae=flatten(data.get('value_advantage_gae', nans)),
         value_weight=flatten(data.get('value_weight', nans)),
+        value_aux=flatten(data.get('policy_value_aux', nans)),
     )
     ret.update({'return': return_cumulative(ret['reward'], ret['reset'])})
     
