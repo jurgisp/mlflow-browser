@@ -390,7 +390,7 @@ class DataMetrics(DataAbstract):
             for metric in metrics:
                 hist = self._mlflow.get_metric_history(str(run_id), metric)
                 if len(hist) > 0:
-                    hist.sort(key=lambda m: (m.step, m.timestamp))
+                    hist.sort(key=lambda m: (m.timestamp, m.step))
                     xs = np.array([m.step for m in hist])
                     ts = np.array([m.timestamp for m in hist]) / 1000 / 3600  # Measure in hours
                     ys = np.array([m.value for m in hist])
