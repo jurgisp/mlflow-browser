@@ -81,15 +81,14 @@ class Timer:
         self.name = name
         self.verbose = verbose
         self.start_time = None
-        # self.times = []
 
     def __enter__(self):
         self.start_time = time.time()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        assert isinstance(self.start_time, float)
         dt = time.time() - self.start_time
-        # self.times.append(dt)
         self.start_time = None
         if self.verbose:
             self.debug_print(dt)

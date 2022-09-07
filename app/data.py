@@ -183,6 +183,7 @@ class DataRuns(DataAbstract):
             'metrics.episode_reward_mean',  # Ray
             'metrics.rollout/ep_rew_mean',  # stable_baselines
             'metrics.episode_reward',
+            'metrics.episode_return',
             'metrics.agent_eval/return_cum100',
             'metrics.agent/return_cum100',
             'metrics.agent_eval/return_cum',
@@ -190,6 +191,7 @@ class DataRuns(DataAbstract):
             'metrics.agent_eval/return',
             'metrics.agent/return',
             'metrics.train_return',
+            'metrics.replay/replay_ep_return',
             'metrics.return'
         ])
         df['episode_length'] = combine_columns(df, [
@@ -197,6 +199,11 @@ class DataRuns(DataAbstract):
             'metrics.agent/episode_length',
             'metrics.actor0/length',
             'metrics.train_length',
+            'metrics.episode_num_frames',
+        ])
+        df['entropy'] = combine_columns(df, [
+            'metrics.train/policy_entropy',
+            'metrics.train/actent_mean',
         ])
 
         df['action_repeat'] = combine_columns(df, [

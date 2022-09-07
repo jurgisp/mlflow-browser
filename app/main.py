@@ -292,7 +292,7 @@ def create_app(doc):
             TableColumn(field="duration", title="duration", width=60),
             TableColumn(field="start_time_local", title="time", formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S"), width=140),
             TableColumn(field="return", title="return", formatter=NumberFormatter(format="0.00"), width=w),
-            TableColumn(field="metrics.train/policy_entropy", title="entropy", formatter=NumberFormatter(format="0.00"), width=w),
+            TableColumn(field="entropy", title="entropy", formatter=NumberFormatter(format="0.00"), width=w),
             TableColumn(field="grad_steps", title="grad_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="env_steps", title="env_steps", formatter=NumberFormatter(format="0,0"), width=80),
             TableColumn(field="gps", title="gps", formatter=NumberFormatter(format="0.00"), width=w),

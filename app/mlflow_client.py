@@ -43,7 +43,11 @@ class MlflowClientLogging(MlflowClient):
     def search_runs(self, experiment_ids) -> pd.DataFrame:
         with Timer(f'mlflow.search_runs({experiment_ids})', verbose=self.verbose):
             # NOTE: this doesn't exist on MlflowClient for some reason
-            return mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)  # type: ignore
+            df = mlflow.search_runs(experiment_ids, max_results=MAX_RUNS)
+            assert isinstance(df, pd.DataFrame)
+            if len(df) == MAX_RUNS:
+                print(f'WARNING: max runs limit ({MAX_RUNS}) reached')
+            return df
 
 
 class MlflowClientLoggingCaching(MlflowClientLogging):
