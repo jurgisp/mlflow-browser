@@ -2,6 +2,7 @@
 import os
 from datetime import datetime
 from typing import List, Optional, Tuple
+from pathlib import Path
 
 import mlflow
 import pandas as pd
@@ -583,7 +584,7 @@ class DataArtifacts(DataAbstract):
         return df
 
     def _load_artifacts(self, run_id, path, dirs):
-        print(f'artifact_uri: {self._data_runs.selected_run_df.iloc[0]["artifact_uri"]}')
+        # print(f'artifact_uri: {self._data_runs.selected_run_df.iloc[0]["artifact_uri"]}')
         artifacts = self._mlflow.list_artifacts(run_id, path)
         artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
         if not dirs:

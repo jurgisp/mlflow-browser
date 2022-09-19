@@ -1,7 +1,12 @@
+import tempfile
+from pathlib import Path
+
+import numpy as np
+
 from .artifacts_minigrid import (preprocess_frames_maze2d,
                                  preprocess_frames_maze3d)
 from .artifacts_npz import parse_batch_data, parse_episode_data
-from .tools import *
+from .tools import Timer
 
 
 def render_step_frames(step_data=None,
@@ -23,7 +28,7 @@ def render_step_frames(step_data=None,
     data = {}
     for k in image_keys:
         img = sd.get(k)
-        if img is not None and len(img.shape) == 3 and img.shape[-1] == 3:
+        if img is not None and len(img.shape) == 3 and img.shape[-1] in (1, 3):
             # Looks like an image
             data[k] = [to_rgba(img)]
         else:
@@ -54,6 +59,23 @@ def render_step_frames(step_data=None,
     #     # TODO: pass goals_pos to render_obs
 
 
+def to_rgba(img, alpha=255):
+    if img.min() < 0:  # (-0.5,0.5)
+        img = img + 0.5
+    if img.max() < 1.01:  # (0,1)
+        img = img * 255
+    img = img.clip(0, 255).astype(np.uint8)
+
+    rgba = np.zeros(img.shape[0:2], dtype=np.uint32)
+    view = rgba.view(dtype=np.uint8).reshape(rgba.shape + (4,))
+    view[:, :, 0:3] = np.flipud(img)
+    if isinstance(alpha, np.ndarray):
+        view[:, :, 3] = np.flipud(alpha)
+    else:
+        view[:, :, 3] = alpha
+    return rgba
+
+
 def load_artifact_steps(mlclient, run_id, artifact_path, fill_trajectory=False):
     with Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
         if artifact_path.endswith('.npz'):
@@ -65,15 +87,15 @@ def load_artifact_steps(mlclient, run_id, artifact_path, fill_trajectory=False):
     print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))  # type: ignore
 
     dimensions = len(data['reward'].shape)
-    
+
     if dimensions == 1:
         # Looks like episode
         data_parsed = parse_episode_data(data)
-    
+
     elif dimensions == 2:
         # Looks like batch
         data_parsed = parse_batch_data(data)
-    
+
     else:
         data_parsed = {}
         print(f'Artifact type not supported: {artifact_path}')
@@ -93,3 +115,12 @@ def load_artifact_steps(mlclient, run_id, artifact_path, fill_trajectory=False):
         data_parsed['agent_trajectory'] = agent_trajectory
 
     return data_parsed
+
+
+def download_artifact_npz(client, run_id, artifact_path):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = client.download_artifacts(run_id, artifact_path, tmpdir)
+        with Path(path).open('rb') as f:
+            data = np.load(f)
+            data = {k: data[k] for k in data.keys()}
+    return data

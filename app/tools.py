@@ -1,6 +1,4 @@
 import time
-import tempfile
-from pathlib import Path
 import pandas as pd
 import numpy as np
 import warnings
@@ -48,31 +46,6 @@ def single_or_none(list):
     else:
         return None
 
-
-def download_artifact_npz(client, run_id, artifact_path):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = client.download_artifacts(run_id, artifact_path, tmpdir)
-        with Path(path).open('rb') as f:
-            data = np.load(f)
-            data = {k: data[k] for k in data.keys()}
-    return data
-
-
-def to_rgba(img, alpha=255):
-    if img.min() < 0:  # (-0.5,0.5)
-        img = img + 0.5
-    if img.max() < 1.01:  # (0,1)
-        img = img * 255
-    img = img.clip(0, 255).astype(np.uint8)
-
-    rgba = np.zeros(img.shape[0:2], dtype=np.uint32)
-    view = rgba.view(dtype=np.uint8).reshape(rgba.shape + (4,))
-    view[:, :, 0:3] = np.flipud(img)
-    if isinstance(alpha, np.ndarray):
-        view[:, :, 3] = np.flipud(alpha)
-    else:
-        view[:, :, 3] = alpha
-    return rgba
 
 
 class Timer:

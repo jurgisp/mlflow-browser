@@ -73,7 +73,6 @@ def parse_batch_data(data, take_episodes=10):
         data['reward'] = np.argmax(data['reward'], -1)
 
     nans = np.full((data['reset'].shape), np.nan)
-    noimg = np.zeros_like(data['image'])
 
     ret = dict(
         step=flatten(i_batch_step),
@@ -86,20 +85,20 @@ def parse_batch_data(data, take_episodes=10):
         reset=flatten(data.get('reset', nans)),
         terminal=flatten(data.get('terminal', nans)),
         image=flatten(data['image']),
-        map_agent=flatten(data.get('map_agent', noimg)),
-        # map_centered=flatten(data.get('map_centered', noimg)),
-        map=flatten(data.get('map', noimg)),
+        map_agent=flatten(data.get('map_agent')),
+        # map_centered=flatten(data.get('map_centered')),
+        map=flatten(data.get('map')),
         agent_pos=flatten(data.get('agent_pos')),
         agent_dir=flatten(data.get('agent_dir')),
         goal_direction=flatten(data.get('goal_direction')),
         goals_direction=flatten(data.get('goals_direction')),
         #
-        image_rec=flatten(data.get('image_rec_p', data.get('image_rec', noimg))),
-        map_rec=flatten(data.get('map_rec_p', data.get('map_rec', noimg))),
+        image_rec=flatten(data.get('image_rec_p', data.get('image_rec'))),
+        map_rec=flatten(data.get('map_rec_p', data.get('map_rec'))),
         goal_direction_pred=flatten(data.get('goal_direction_pred')),
         goals_direction_pred=flatten(data.get('goals_direction_pred')),
         #
-        image_pred=flatten(data.get('image_pred_p', data.get('image_pred', noimg))),
+        image_pred=flatten(data.get('image_pred_p', data.get('image_pred'))),
         reward_pred=flatten(data.get('reward_pred', nans)),
         terminal_pred=flatten(data.get('terminal_pred', nans)),
         action_pred=flatten(data['action_pred']).argmax(axis=-1) if 'action_pred' in data else flatten(nans),
@@ -140,9 +139,8 @@ def parse_episode_data(data):
         data['image'] = data['image'][..., 0]
 
     nans = np.full((data['reset'].shape), np.nan)
-    noimg = np.zeros_like(data['image'])
 
-    return dict(
+    ret = dict(
         step=i_step,
         action=_action_categorical(data['action']),
         reward=data['reward'],
@@ -150,9 +148,9 @@ def parse_episode_data(data):
         image=data['image'],
         terminal=data.get('terminal', nans),
         reset=data.get('reset', nans),
-        map_agent=data.get('map_agent', noimg),
-        map=data.get('map', noimg),
-        map_rec=data.get('map_centered', noimg),
+        map_agent=data.get('map_agent'),
+        map=data.get('map', data.get('maze_layout')),
+        map_rec=data.get('map_centered'),
         agent_pos=data.get('agent_pos', nans),
         agent_dir=data.get('agent_dir', nans),
         value=flatten(data.get('policy_value', nans)),
@@ -161,3 +159,6 @@ def parse_episode_data(data):
             'return_discounted': return_discounted(data['reward'], data['reset']),
         }
     )
+
+    ret = {k: v for k, v in ret.items() if v is not None}  # Remove Nones
+    return ret
