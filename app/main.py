@@ -61,7 +61,7 @@ def load_artifacts(run_id=None, path=None, dirs=False):
     }
 
 
-def load_artifact_steps(run_id, artifact_path):
+def load_artifact_steps(run_id, artifact_path, fill_trajectory=False):
     with Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
         if artifact_path.endswith('.npz'):
             data = download_artifact_npz(mlclient, run_id, artifact_path)
@@ -82,6 +82,19 @@ def load_artifact_steps(run_id, artifact_path):
         print(f'Artifact type not supported: {artifact_path}')
 
     print('Artifact parsed: ' + str({k: v.shape for k, v in data_parsed.items()}))
+
+    # Create agent_trajectory
+
+    if fill_trajectory:
+        agent_pos = data_parsed['agent_pos']  # maze3d
+        steps = data_parsed['step']
+        if np.any(np.isnan(agent_pos)):
+        steps, ax, ay = np.where(data_parsed['map_agent'] >= 4)
+        agent_pos = 0.5 + np.array([ax, ay]).T  # maze2d
+    agent_trajectory = [list() for _ in steps]
+    for i in steps:
+        agent_trajectory[i] = agent_pos[:i + 1].tolist()
+    data_parsed['agent_trajectory'] = agent_trajectory
 
     return data_parsed
 
@@ -123,13 +136,6 @@ def load_frame(step_data=None,
         img = to_rgba(img)
         data[k] = [img]
 
-    if not 'agent_pos' in sd and 'agent_dir' in sd and not np.all(np.isnan(sd['agent_pos'])):
-        # Re-render agent for maze3d
-        data['map_agent'] = [to_rgba(artifacts_minigrid.render_obs(
-            sd['map'],
-            agent_pos=sd['agent_pos'],
-            agent_dir=sd['agent_dir'],
-        ))]
     if 'goals_direction_pred' in sd and 'agent_pos' in sd and 'agent_dir' in sd:
         # Draw goal prediction
         goals_direction = sd['goals_direction_pred'].reshape((-1, 2))
@@ -137,12 +143,43 @@ def load_frame(step_data=None,
         for gd in goals_direction:
             if np.any(np.abs(gd) > 1e-3):
                 goals_pos.append(sd['agent_pos'] + rotation_dir(sd['agent_dir']) @ gd)
-        data['map_rec'] = [to_rgba(artifacts_minigrid.render_obs(
+        # TODO: pass goals_pos to render_obs
+
+    # Draw map with agent and trajectory
+    is_maze2d = sd['image'].dtype == np.int64
+    if is_maze2d:
+        data['map_agent'] = [
+            to_rgba(artifacts_minigrid.render_obs(
+                sd['map_agent'],
+                trajectory=sd.get('agent_trajectory')
+            ))
+        ]
+    else:
+        data['map_agent'] = [
+            to_rgba(artifacts_minigrid.render_obs(
+                sd['map'],
+                trajectory=sd.get('agent_trajectory'),
+                agent_pos=sd['agent_pos'],
+                agent_dir=sd['agent_dir'],
+                is_maze3d=True
+            ))
+        ]
+
+    # Probe prediction & Green/Red tint
+    data['map_rec'] = [
+        to_rgba(artifacts_minigrid.render_obs(
+            sd['map_rec'],
+            map_correct=sd['map']
+        ))
+    ]
+
+    # Probe target
+    data['map'] = [
+        to_rgba(artifacts_minigrid.render_obs(
             sd['map'],
-            agent_pos=sd['agent_pos'],
-            agent_dir=sd['agent_dir'],
-            goals_pos=goals_pos
-        ))]
+            is_probe_target=True
+        ))
+    ]
 
     return data
 
