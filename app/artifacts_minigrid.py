@@ -20,6 +20,62 @@ except:
     print('No gym_minigrid')
 
 
+def preprocess_frames_maze2d(sd):
+    data = sd.copy()
+
+    # Render MiniGrid
+    data['image'] = render_obs(sd['image'])
+    data['image_rec'] = render_obs(sd['image_rec'])
+    data['image_pred'] = render_obs(sd['image_pred'])
+
+    # Draw map with agent and trajectory
+    data['map_agent'] = render_obs(
+        sd['map_agent'],
+        trajectory=sd.get('agent_trajectory')
+    )
+
+    # Probe prediction & Green/Red tint
+    data['map_rec'] = render_obs(
+        sd['map_rec'],
+        map_correct=sd['map']
+    )
+
+    # Probe target
+    data['map'] = render_obs(
+        sd['map'],
+        is_probe_target=True
+    )
+
+    return data
+
+
+def preprocess_frames_maze3d(sd):
+    data = sd.copy()
+
+    # Draw map with agent and trajectory
+    data['map_agent'] = render_obs(
+        sd['map'],
+        trajectory=sd.get('agent_trajectory'),
+        agent_pos=sd['agent_pos'],
+        agent_dir=sd['agent_dir'],
+        is_maze3d=True
+    )
+
+    # Probe prediction & Green/Red tint
+    data['map_rec'] = render_obs(
+        sd['map_rec'],
+        map_correct=sd['map']
+    )
+
+    # Probe target
+    data['map'] = render_obs(
+        sd['map'],
+        is_probe_target=True
+    )
+
+    return data
+
+
 def rotation(ang):
     ang = np.radians(ang)
     return np.array((
@@ -37,13 +93,13 @@ def rotation_dir(dir):
 
 
 def render_obs(obs,
-               map_correct=None, 
-               trajectory=None, 
-               agent_pos=None, 
-               agent_dir=None, 
+               map_correct=None,
+               trajectory=None,
+               agent_pos=None,
+               agent_dir=None,
                goals_pos=None,
-               tile_size=16, 
-               is_probe_target=False, 
+               tile_size=16,
+               is_probe_target=False,
                is_maze3d=False):
     import skimage.draw
 

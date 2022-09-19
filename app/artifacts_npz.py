@@ -43,7 +43,7 @@ def _action_categorical(action):
         return action
 
 
-def parse_d2_batch(data, take_episodes=10):
+def parse_batch_data(data, take_episodes=10):
 
     # Cut all to same B
     B = min(v.shape[0] for k, v in data.items())
@@ -127,7 +127,7 @@ def parse_d2_batch(data, take_episodes=10):
     return ret
 
 
-def parse_d2_episodes(data):
+def parse_episode_data(data):
     n = data['reward'].shape[0]
     i_step = np.arange(n)
 

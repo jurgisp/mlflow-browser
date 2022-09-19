@@ -1,26 +1,19 @@
-from pathlib import Path
-import numpy as np
-import pandas as pd
-import mlflow
-
 import bokeh.plotting
-from bokeh.plotting import curdoc
-from bokeh.models import *  # type: ignore
 from bokeh import layouts
 from bokeh.layouts import layout
+from bokeh.models import (Button, DataTable, DateFormatter,
+                          HTMLTemplateFormatter, NumberFormatter,
+                          NumeralTickFormatter, Panel, PreText, RadioGroup,
+                          TableColumn, Tabs, TextInput, Toggle, WheelZoomTool)
 from bokeh.palettes import Category10_10 as palette
+from bokeh.plotting import curdoc
 
-from .tools import *
+from .artifacts import load_artifact_steps, render_step_frames
 from .data import *
 from .mlflow_client import MlflowClientLoggingCaching
-
-import artifacts_dreamer2  # for handling app-specific artifacts
-import artifacts_minigrid
-from artifacts_minigrid import rotation_dir
-
+from .tools import *
 
 PLAY_INTERVAL = 100
-# PLAY_INTERVAL = 300
 PLAY_DELAY = 0
 DEFAULT_TAB = 'metrics'
 TABLE_HEIGHT = 300
@@ -36,7 +29,7 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
         **kwargs,
     )
     if active_scroll:
-        fig.toolbar.active_scroll = fig.select_one(WheelZoomTool)  # type: ignore
+        fig.toolbar.active_scroll = fig.select_one(WheelZoomTool)
     if hide_axes:
         fig.xaxis.visible = False
         fig.yaxis.visible = False
@@ -44,149 +37,6 @@ def figure(tools='pan,tap,wheel_zoom,reset', active_scroll=True, hide_axes=False
     #     # For some reason log axis is flipped by default
     #     fig.y_range.flipped = True  # type: ignore
     return fig
-
-
-def load_artifacts(run_id=None, path=None, dirs=False):
-    if run_id is None:
-        return {}
-    artifacts = mlclient.list_artifacts(run_id, path)
-    artifacts = list([f for f in artifacts if f.is_dir == dirs])  # Filter dirs or files
-    if not dirs:
-        artifacts = list(reversed(artifacts))  # Order newest-first
-    return {
-        'path': [f.path for f in artifacts],
-        'name': [f.path.split('/')[-1] for f in artifacts],
-        'file_size_mb': [f.file_size / 1024 / 1024 if f.file_size is not None else None for f in artifacts],
-        'is_dir': [f.is_dir for f in artifacts],
-    }
-
-
-def load_artifact_steps(run_id, artifact_path, fill_trajectory=False):
-    with Timer(f'mlflow.download_artifact({artifact_path})', verbose=True):
-        if artifact_path.endswith('.npz'):
-            data = download_artifact_npz(mlclient, run_id, artifact_path)
-        else:
-            print(f'Artifact extension not supported: {artifact_path}')
-            return {}
-
-    print('Artifact raw: ' + str({k: v.shape for k, v in data.items()}))  # type: ignore
-
-    data_parsed = {}
-    # if artifact_path.startswith('d2_train_batch/'):
-    #     data_parsed =  artifacts_dreamer2.parse_d2_train_batch(data)
-    if artifact_path.startswith('d2_wm_'):
-        data_parsed = artifacts_dreamer2.parse_d2_batch(data)
-    elif artifact_path.startswith('d2_train_episodes/') or artifact_path.startswith('d2_eval_episodes/') or artifact_path.startswith('episodes'):
-        data_parsed = artifacts_dreamer2.parse_d2_episodes(data)
-    else:
-        print(f'Artifact type not supported: {artifact_path}')
-
-    print('Artifact parsed: ' + str({k: v.shape for k, v in data_parsed.items()}))
-
-    # Create agent_trajectory
-
-    if fill_trajectory:
-        agent_pos = data_parsed['agent_pos']  # maze3d
-        steps = data_parsed['step']
-        if np.any(np.isnan(agent_pos)):
-        steps, ax, ay = np.where(data_parsed['map_agent'] >= 4)
-        agent_pos = 0.5 + np.array([ax, ay]).T  # maze2d
-    agent_trajectory = [list() for _ in steps]
-    for i in steps:
-        agent_trajectory[i] = agent_pos[:i + 1].tolist()
-    data_parsed['agent_trajectory'] = agent_trajectory
-
-    return data_parsed
-
-
-def load_frame(step_data=None,
-               image_keys=['image', 'image_rec', 'image_pred', 'map', 'map_agent', 'map_rec', 'map_rec_global']
-               ):
-    if step_data is None:
-        return {k: [] for k in image_keys}
-
-    sd = step_data
-
-    # map_rec_global
-    if 'map_rec' in sd and 'map_agent' in sd and not np.all(sd['map_rec'] == 0):
-        if len(sd['map_rec'].shape) == 2 and sd['map_rec'].shape[0] > sd['map_agent'].shape[0]:
-            # map_rec is bigger than map_agent (categorical) - must be agent-centric
-            map_agent = artifacts_minigrid.CAT_TO_OBJ[sd['map_agent']]
-            agent_pos, agent_dir = artifacts_minigrid._get_agent_pos(map_agent)
-            sd['map_rec_global'] = artifacts_minigrid._map_centric_to_global(sd['map_rec'], agent_pos, agent_dir, map_agent.shape[:2])
-        if len(sd['map_rec'].shape) == 3 and sd['map_rec'].shape[-1] == 3 and 'agent_pos' in sd:
-            # map_rec is RGB - must be agent centric
-            sd['map_rec_global'] = artifacts_minigrid.map_centric_to_global_rgb(sd['map_rec'], sd['agent_pos'], sd['agent_dir'], sd['map_agent'].shape[:2])
-
-    data = {}
-    for k in image_keys:
-        obs = sd.get(k)
-
-        # TODO: move this logic to artifacts
-        if obs is None or obs.shape == (1, 1, 1):
-            obs = np.zeros((1, 1, 3))
-
-        if len(obs.shape) == 3 and obs.shape[1] == obs.shape[2]:  # Looks transposed (C,W,W)
-            obs = obs.transpose(1, 2, 0)  # (C,W,W) => (W,W,C)
-
-        if obs.shape[-1] == 3 and len(obs.shape) == 3:  # Looks like an image (H,W,C)
-            img = obs
-        else:
-            img = artifacts_minigrid.render_obs(obs)  # Try MiniGrid
-        img = to_rgba(img)
-        data[k] = [img]
-
-    if 'goals_direction_pred' in sd and 'agent_pos' in sd and 'agent_dir' in sd:
-        # Draw goal prediction
-        goals_direction = sd['goals_direction_pred'].reshape((-1, 2))
-        goals_pos = []
-        for gd in goals_direction:
-            if np.any(np.abs(gd) > 1e-3):
-                goals_pos.append(sd['agent_pos'] + rotation_dir(sd['agent_dir']) @ gd)
-        # TODO: pass goals_pos to render_obs
-
-    # Draw map with agent and trajectory
-    is_maze2d = sd['image'].dtype == np.int64
-    if is_maze2d:
-        data['map_agent'] = [
-            to_rgba(artifacts_minigrid.render_obs(
-                sd['map_agent'],
-                trajectory=sd.get('agent_trajectory')
-            ))
-        ]
-    else:
-        data['map_agent'] = [
-            to_rgba(artifacts_minigrid.render_obs(
-                sd['map'],
-                trajectory=sd.get('agent_trajectory'),
-                agent_pos=sd['agent_pos'],
-                agent_dir=sd['agent_dir'],
-                is_maze3d=True
-            ))
-        ]
-
-    # Probe prediction & Green/Red tint
-    data['map_rec'] = [
-        to_rgba(artifacts_minigrid.render_obs(
-            sd['map_rec'],
-            map_correct=sd['map']
-        ))
-    ]
-
-    # Probe target
-    data['map'] = [
-        to_rgba(artifacts_minigrid.render_obs(
-            sd['map'],
-            is_probe_target=True
-        ))
-    ]
-
-    return data
-
-
-# load_artifacts({'id':'db1a75611d464df08f1c7052cc8b1047'})
-# data = download_artifact_npz('db1a75611d464df08f1c7052cc8b1047', 'd2_train_batch/0000951.npz')
-# data['imag_image'].shape
 
 
 def create_app(doc):
@@ -209,7 +59,7 @@ def create_app(doc):
 
         if source == 'artifacts':
             artifact_selected(None, None, None)
-        
+
         if source == 'runs':
             # Set txt_rename to current name
             if len(data_runs.selected_run_df) == 1:
@@ -240,7 +90,7 @@ def create_app(doc):
     data_artifacts = DataArtifacts(on_change, data_runs, datac_tabs, data_artifacts_dir, False, mlclient, 'artifacts')
 
     steps_source = ColumnDataSource(data={})
-    frame_source = ColumnDataSource(data=load_frame())
+    frame_source = ColumnDataSource(data=render_step_frames())
     frame_play_counter = 0
 
     # Callbacks
@@ -281,7 +131,7 @@ def create_app(doc):
         run_id = single_or_none(data_runs.selected_run_ids) if tabs.active == 1 else None  # Don't reload if another tab
         artifact_path = single_or_none(data_artifacts.selected_paths)
         if run_id and artifact_path:
-            data = load_artifact_steps(run_id, artifact_path)
+            data = load_artifact_steps(mlclient, run_id, artifact_path)
             steps_source.data = data  # type: ignore
             if len(data) > 0:
                 steps_source.selected.indices = [0]  # type: ignore
@@ -292,7 +142,7 @@ def create_app(doc):
     def update_frame(offset=0):
         steps = selected_rows(steps_source)
         step = steps[offset % len(steps)] if len(steps) > 0 else None
-        frame_source.data = load_frame(step)  # type: ignore
+        frame_source.data = render_step_frames(step)  # type: ignore
 
     # === Layout ===
 
@@ -526,7 +376,6 @@ def create_app(doc):
     frame_figure_3.image_rgba(image='image_rec', source=frame_source, **kwargs)
     frame_figure_4.image_rgba(image='map_agent', source=frame_source, **kwargs)
     frame_figure_5.image_rgba(image='map', source=frame_source, **kwargs)
-    # frame_figure_5.image_rgba(image='map_rec_global', source=frame_source, **kwargs)
     frame_figure_6.image_rgba(image='map_rec', source=frame_source, **kwargs)
 
     # === Loader ===
