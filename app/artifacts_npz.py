@@ -92,6 +92,7 @@ def parse_batch_data(data, take_episodes=10):
         agent_dir=flatten(data.get('agent_dir')),
         goal_direction=flatten(data.get('goal_direction')),
         goals_direction=flatten(data.get('goals_direction')),
+        goals_pos=flatten(data.get('targets_pos')),
         #
         image_rec=flatten(data.get('image_rec_p', data.get('image_rec'))),
         map_rec=flatten(data.get('map_rec_p', data.get('map_rec'))),
@@ -153,6 +154,7 @@ def parse_episode_data(data):
         map_rec=data.get('map_centered'),
         agent_pos=data.get('agent_pos', nans),
         agent_dir=data.get('agent_dir', nans),
+        goals_pos=data.get('targets_pos'),
         value=flatten(data.get('policy_value', nans)),
         **{
             'return': return_cumulative(data['reward'], data['reset']),

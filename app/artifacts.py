@@ -3,9 +3,6 @@ from pathlib import Path
 
 import numpy as np
 
-from .artifacts_memmaze import preprocess_frames_memmaze
-from .artifacts_minigrid import (preprocess_frames_maze2d,
-                                 preprocess_frames_maze3d)
 from .artifacts_npz import parse_batch_data, parse_episode_data
 from .tools import Timer
 
@@ -19,11 +16,17 @@ def render_step_frames(step_data=None,
     sd = step_data.copy()
 
     TYPE = ''  # TODO: detect automatically
+
     if TYPE == 'maze2d':
+        from .artifacts_minigrid import preprocess_frames_maze2d
         sd = preprocess_frames_maze2d(step_data)
+    
     if TYPE == 'maze3d':
+        from .artifacts_minigrid import preprocess_frames_maze3d
         sd = preprocess_frames_maze3d(step_data)
+    
     if TYPE == 'memmaze':
+        from .artifacts_memmaze import preprocess_frames_memmaze
         sd = preprocess_frames_memmaze(step_data)
 
     # Convert numpy arrays to Bokeh-compatible images
