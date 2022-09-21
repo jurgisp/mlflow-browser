@@ -34,6 +34,8 @@ TZ_LOCAL = 'Europe/Vilnius'
 PALETTE = Category10_10
 PALETTE_BASE = Greys3[:2]
 
+DEBUG_SELECT_ARTIFACT = False
+
 
 def dt_tolocal(col) -> pd.Series:
     return (
@@ -255,6 +257,11 @@ class DataRuns(DataAbstract):
         if len(df) == 0:
             self.source.selected.indices = []  # type: ignore
         else:
+            if DEBUG_SELECT_ARTIFACT:
+                # quick select run for debugging
+                self.source.selected.indices = [0]  # type: ignore
+                return
+
             df = df[df['id'].isin(self.selected_run_ids)]
             self.source.selected.indices = df.index.to_list()  # type: ignore
 
@@ -611,6 +618,11 @@ class DataArtifacts(DataAbstract):
         self.selected_paths = cols.get('path', [])
 
     def reselect(self, is_refresh):
+        if DEBUG_SELECT_ARTIFACT and len(self.data) > 1:
+            # quick select artifact for debugging:
+            self.source.selected.indices = [1]  # type: ignore
+            return
+        
         self.source.selected.indices = []  # type: ignore
 
 
