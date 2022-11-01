@@ -55,14 +55,6 @@ def render_step_frames(step_data=None,
     #         # map_rec is RGB - must be agent centric
     #         sd['map_rec_global'] = artifacts_minigrid.map_centric_to_global_rgb(sd['map_rec'], sd['agent_pos'], sd['agent_dir'], sd['map_agent'].shape[:2])
 
-    # if 'goals_direction_pred' in sd and 'agent_pos' in sd and 'agent_dir' in sd:
-    #     # Draw goal prediction
-    #     goals_direction = sd['goals_direction_pred'].reshape((-1, 2))
-    #     goals_pos = []
-    #     for gd in goals_direction:
-    #         if np.any(np.abs(gd) > 1e-3):
-    #             goals_pos.append(sd['agent_pos'] + rotation_dir(sd['agent_dir']) @ gd)
-    #     # TODO: pass goals_pos to render_obs
 
 
 def to_rgba(img, alpha=255):
