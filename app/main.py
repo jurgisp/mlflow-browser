@@ -151,7 +151,7 @@ def create_app(doc):
     experiments_table = DataTable(
         source=data_experiments.source,
         columns=[
-            TableColumn(field="name", width=100),
+            TableColumn(field="name", width=130),
             TableColumn(field="id", width=50),
         ],
         width=200,
